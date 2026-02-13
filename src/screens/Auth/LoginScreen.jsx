@@ -19,7 +19,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = () => {
     // Example navigation after login
-    navigation.navigate("Home");
+    navigation.navigate("MainTabs");
   };
 
   return (
@@ -74,7 +74,10 @@ export default function LoginScreen({ navigation }) {
 
         {/* FORGOT PASSWORD */}
         <TouchableOpacity>
-          <Text style={styles.forgot}>Forgotten your password ?</Text>
+          <Text style={styles.forgot}
+          onPress={()=>{
+            navigation.navigate("ForgotPassword")
+          }}>Forgotten your password ?</Text>
         </TouchableOpacity>
 
         {/* DIVIDER */}
@@ -198,5 +201,6 @@ const styles = StyleSheet.create({
   },
   create: {
     fontWeight: "bold",
+   color:"#1e65d0",
   },
 });
