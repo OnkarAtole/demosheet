@@ -108,7 +108,7 @@ npx expo start -c
 OR (if emulator running) press:
 
 ```bash
-a
+r
 ```
 
 ---
