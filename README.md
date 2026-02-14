@@ -108,7 +108,7 @@ npx expo start -c
 OR (if emulator running) press:
 
 ```bash
-a
+r
 ```
 
 ---
@@ -136,7 +136,7 @@ Ctrl + C
 ## 📂 Project Structure
 
 ```
-your-project/
+papercheck_omr/
 │
 ├── assets/
 ├── screens/

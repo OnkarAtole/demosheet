@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,10 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AnswerKey({ route, navigation }) {
+
   useFocusEffect(
     useCallback(() => {
       const parent = navigation.getParent();
@@ -25,14 +25,25 @@ export default function AnswerKey({ route, navigation }) {
           tabBarStyle: { display: "flex" },
         });
       };
-    }, [navigation]),
+    }, [navigation])
   );
 
-  const { totalQuestions, examId, totalSets } = route.params;
+  // 🔥 SAFE PARAMS
+  const {
+    subjects,
+    totalQuestions,
+    examId,
+    totalSets = 1,
+  } = route.params;
+
+  // 🔥 Fallback if subjects not provided
+  const subjectList = subjects
+    ? subjects
+    : [{ name: "General", questions: totalQuestions }];
 
   const setOptions = useMemo(
     () => Array.from({ length: totalSets }, (_, i) => `Set ${i + 1}`),
-    [totalSets],
+    [totalSets]
   );
 
   const [selectedSet, setSelectedSet] = useState(setOptions[0]);
@@ -40,12 +51,12 @@ export default function AnswerKey({ route, navigation }) {
 
   const options = ["A", "B", "C", "D"];
 
-  const handleSelect = (question, option) => {
+  const handleSelect = (key, option) => {
     setAnswers((prev) => ({
       ...prev,
       [selectedSet]: {
         ...prev[selectedSet],
-        [question]: option,
+        [key]: option,
       },
     }));
   };
@@ -54,13 +65,30 @@ export default function AnswerKey({ route, navigation }) {
     console.log("Saved Answer Key:", answers);
   };
 
+  // 🔥 Flatten subject-wise questions
+  const flatQuestions = [];
+  let counter = 1;
+
+  subjectList.forEach((subject) => {
+    for (let i = 1; i <= subject.questions; i++) {
+      flatQuestions.push({
+        subject: subject.name,
+        questionNumber: counter,
+        displayNumber: i,
+      });
+      counter++;
+    }
+  });
+
   const renderItem = ({ item }) => {
-    const questionNumber = item;
-    const selected = answers[selectedSet]?.[questionNumber];
+    const selected =
+      answers[selectedSet]?.[item.questionNumber];
 
     return (
       <View style={styles.row}>
-        <Text style={styles.questionText}>{questionNumber}</Text>
+        <Text style={styles.questionText}>
+          {item.questionNumber}
+        </Text>
 
         <View style={styles.optionsRow}>
           {options.map((option) => {
@@ -69,12 +97,19 @@ export default function AnswerKey({ route, navigation }) {
             return (
               <TouchableOpacity
                 key={option}
-                activeOpacity={0.7}
-                style={[styles.optionCircle, isSelected && styles.selected]}
-                onPress={() => handleSelect(questionNumber, option)}
+                style={[
+                  styles.optionCircle,
+                  isSelected && styles.selected,
+                ]}
+                onPress={() =>
+                  handleSelect(item.questionNumber, option)
+                }
               >
                 <Text
-                  style={[styles.optionText, isSelected && { color: "#fff" }]}
+                  style={[
+                    styles.optionText,
+                    isSelected && { color: "#fff" },
+                  ]}
                 >
                   {option}
                 </Text>
@@ -87,20 +122,15 @@ export default function AnswerKey({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: "#f5f6fa" }}
-      edges={["top", "bottom"]}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f6fa" }}>
       <View style={styles.container}>
         <Text style={styles.heading}>Answer Key</Text>
 
         {/* Set Dropdown */}
         <View style={styles.dropdownContainer}>
-          {/* <Text style={styles.setLabel}>Select Exam Set</Text> */}
           <Picker
             selectedValue={selectedSet}
             onValueChange={(value) => setSelectedSet(value)}
-            
           >
             {setOptions.map((set) => (
               <Picker.Item key={set} label={set} value={set} />
@@ -110,11 +140,58 @@ export default function AnswerKey({ route, navigation }) {
 
         {/* Questions List */}
         <FlatList
-          data={Array.from({ length: totalQuestions }, (_, i) => i + 1)}
-          keyExtractor={(item) => item.toString()}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-        />
+  data={subjectList}
+  keyExtractor={(item) => item.name}
+  renderItem={({ item }) => {
+    return (
+      <View style={{ marginBottom: 25 }}>
+        {/* Subject Heading */}
+        <Text style={styles.subjectHeading}>{item.name}</Text>
+
+        {Array.from({ length: item.questions }, (_, i) => {
+          const questionNumber = i + 1;
+          const key = `${item.name}-${questionNumber}`;
+          const selected = answers[selectedSet]?.[key];
+
+          return (
+            <View key={key} style={styles.row}>
+              <Text style={styles.questionText}>
+                {questionNumber}
+              </Text>
+
+              <View style={styles.optionsRow}>
+                {options.map((option) => {
+                  const isSelected = selected === option;
+
+                  return (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.optionCircle,
+                        isSelected && styles.selected,
+                      ]}
+                      onPress={() => handleSelect(key, option)}
+                    >
+                      <Text
+                        style={[
+                          styles.optionText,
+                          isSelected && { color: "#fff" },
+                        ]}
+                      >
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    );
+  }}
+/>
+
 
         {/* Save Button */}
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
@@ -124,7 +201,6 @@ export default function AnswerKey({ route, navigation }) {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -145,14 +221,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 10,
     padding: 10,
+    elevation: 2,
   },
-
-  setLabel: {
-    fontWeight: "600",
-    marginBottom: 5,
-  },
-
-  
 
   row: {
     flexDirection: "row",
@@ -162,7 +232,7 @@ const styles = StyleSheet.create({
   },
 
   questionText: {
-    width: 30,
+    width: 40,
     fontSize: 16,
     fontWeight: "600",
   },
@@ -204,4 +274,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
+  subjectHeading: {
+  fontSize: 18,
+  fontWeight: "bold",
+  marginBottom: 10,
+  color: "#2e64b5",
+},
+
 });

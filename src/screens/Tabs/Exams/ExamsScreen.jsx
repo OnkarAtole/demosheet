@@ -11,27 +11,33 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function ExamsScreen({ navigation }) {
 
   // 🔥 Hardcoded API Response (Same structure backend will return)
-  const [exams, setExams] = useState([
-    {
-      id: "1",
-      date: "28",
-      month: "Feb",
-      title: "Unit",
-      questions: 13,
-      status: "Incoming",
-      class: "MCA",
-    },
-    {
-      id: "2",
-      date: "5",
-      month: "Mar",
-      title: "Mid Term",
-      questions: 20,
-      status: "Completed",
-      class: "BCA",
-    },
-     
-  ]);
+const [exams, setExams] = useState([
+  {
+    id: "1",
+    date: "28",
+    month: "Feb",
+    title: "Unit",
+    status: "Incoming",
+    class: "MCA",
+    subjects: [
+      { name: "Math", questions: 5 },
+      { name: "Physics", questions: 8 },
+    ],
+  },
+  {
+    id: "2",
+    date: "5",
+    month: "Mar",
+    title: "Mid Term",
+    status: "Completed",
+    class: "BCA",
+    subjects: [
+      { name: "Java", questions: 10 },
+      { name: "DBMS", questions: 10 },
+    ],
+  },
+]);
+
 
   const handlePress = (item) => {
     navigation.navigate("ExamDetails", { examData: item });

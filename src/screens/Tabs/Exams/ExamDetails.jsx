@@ -67,14 +67,13 @@ export default function ExamDetails({ route,navigation }) {
       </TouchableOpacity>
 
       {/* 2x2 Grid */}
-      <View style={styles.grid}>
+       <View style={styles.grid}>
         <TouchableOpacity
           style={styles.optionBox}
           onPress={() =>
             navigation.navigate("AnswerKey", {
-              totalQuestions: examData.questions,
-              examId: examData.id,
-              totalSets:2,
+              subjects: examData.subjects,
+              totalSets: 2,
             })
           }
         >
