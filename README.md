@@ -136,7 +136,7 @@ Ctrl + C
 ## 📂 Project Structure
 
 ```
-your-project/
+papercheck_omr/
 │
 ├── assets/
 ├── screens/
