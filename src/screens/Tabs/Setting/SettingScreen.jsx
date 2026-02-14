@@ -6,7 +6,7 @@ import {
   View,
   Platform
 } from "react-native";
-import React from "react";
+import React, { use } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import AntDesign from "react-native-vector-icons/AntDesign";
@@ -17,7 +17,9 @@ const Setting = ({navigation}) => {
   const role="Teacher"
 
   const handleEdit=()=>{
-
+   navigation.navigate("EditProfile",{
+    username:username,
+   })
   }
   const handlecontact=()=>{
     navigation.navigate("ContactScreen")

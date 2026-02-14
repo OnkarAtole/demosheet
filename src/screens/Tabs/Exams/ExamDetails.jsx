@@ -9,8 +9,7 @@ import {
 
 const { width } = Dimensions.get("window");
 
-export default function ExamDetails({ route }) {
-
+export default function ExamDetails({ route,navigation }) {
   const { examData } = route.params;
 
   const progress = 7;
@@ -18,12 +17,10 @@ export default function ExamDetails({ route }) {
 
   return (
     <View style={styles.container}>
-
       <Text style={styles.heading}>Exams Details</Text>
 
       {/* Exam Card */}
       <View style={styles.card}>
-
         {/* Date Box */}
         <View style={styles.dateBox}>
           <Text style={styles.dateText}>{examData.date}</Text>
@@ -43,10 +40,9 @@ export default function ExamDetails({ route }) {
           </View>
 
           <View style={styles.courseBadge}>
-            <Text style={{ color: "#fff" }}>{examData.course}</Text>
+            <Text style={{ color: "#fff" }}>{examData.class}</Text>
           </View>
         </View>
-
       </View>
 
       {/* Progress Bar */}
@@ -72,14 +68,24 @@ export default function ExamDetails({ route }) {
 
       {/* 2x2 Grid */}
       <View style={styles.grid}>
+        <TouchableOpacity
+          style={styles.optionBox}
+          onPress={() =>
+            navigation.navigate("AnswerKey", {
+              totalQuestions: examData.questions,
+              examId: examData.id,
+              totalSets:2,
+            })
+          }
+        >
+          <View style={styles.circle} />
+          <Text style={styles.optionText}>Answer Key</Text>
+        </TouchableOpacity>
 
-        {renderOption("Answer Key")}
         {renderOption("Scan Sheet")}
         {renderOption("Download Excel")}
         {renderOption("Analysis")}
-
       </View>
-
     </View>
   );
 }
@@ -92,7 +98,6 @@ const renderOption = (title) => (
 );
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: "#f2f2f2",
@@ -224,5 +229,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-
 });

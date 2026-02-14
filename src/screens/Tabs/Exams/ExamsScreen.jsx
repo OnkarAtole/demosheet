@@ -19,7 +19,7 @@ export default function ExamsScreen({ navigation }) {
       title: "Unit",
       questions: 13,
       status: "Incoming",
-      course: "MCA",
+      class: "MCA",
     },
     {
       id: "2",
@@ -28,8 +28,9 @@ export default function ExamsScreen({ navigation }) {
       title: "Mid Term",
       questions: 20,
       status: "Completed",
-      course: "BCA",
+      class: "BCA",
     },
+     
   ]);
 
   const handlePress = (item) => {
@@ -60,8 +61,8 @@ export default function ExamsScreen({ navigation }) {
           <Text style={styles.statusText}>{item.status}</Text>
         </View>
 
-        <View style={styles.courseBadge}>
-          <Text style={styles.courseText}>{item.course}</Text>
+        <View style={styles.classBadge}>
+          <Text style={styles.classText}>{item.class}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -98,8 +99,8 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: "#f2f2f2",
-    padding: 20,
+    backgroundColor: "#fff",
+    paddingHorizontal:20,
     marginTop: 30,
   },
 
@@ -182,14 +183,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  courseBadge: {
+  classBadge: {
     backgroundColor: "#bdbdbd",
     paddingHorizontal: 15,
     paddingVertical: 6,
     borderRadius: 4,
   },
 
-  courseText: {
+  classText: {
     color: "#fff",
     fontWeight: "500",
   },
