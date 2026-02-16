@@ -37,7 +37,7 @@ https://nodejs.org/
 
 Check installation:
 
-``````bash
+
 node -v
 npm -v
 ```
@@ -202,7 +202,6 @@ Press:
 
 ``````bash
 Ctrl + C
-```
 
 ---
 
