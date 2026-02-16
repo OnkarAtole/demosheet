@@ -187,6 +187,6 @@ Run this command in terminal:
 
 ```
 
-**python -c "import secrets; print(secrets.token_hex(32))"**
+python -c "import secrets; print(secrets.token_hex(32))"
 
 ```
