@@ -1,30 +1,34 @@
-I’ve compiled all your instructions into a single, structured `.md` file. Since I cannot "send" a physical file to your local drive directly, you can copy the content below and save it as **`README.md`**.
+You're right—GitHub is a bit picky. It doesn't like the double syntax `## ##` or `### ###`. It only needs one set of hashes to create a heading. If you use two, it treats the second set as plain text, which looks messy.
 
-### 📄 Markdown Content
+Here is the "GitHub-ready" version. I've used standard Markdown hierarchies so it generates a clean Table of Contents and proper bold headers on your repository page.
+
+### 📄 README.md (GitHub Optimized)
 
 ```markdown
-# React Native App (Expo)
+# React Native App (Expo) - PaperCheck OMR
 
 This is a cross-platform mobile application built using **React Native** with **Expo**. The same codebase works on Android and iOS without platform-specific changes.
 
-## ## Features
+---
+
+## 🚀 Features
 * **Single codebase** for Android & iOS
 * **Fast development** with Expo
 * **Hot Reload** / Fast Refresh
 * **Runs on real devices** using Expo Go
 * **Easy setup** and configuration
 
-## ## Tech Stack
+## 🛠 Tech Stack
 * **Frontend:** React Native, Expo, Tailwind CSS
 * **Backend:** FastAPI, Python
 * **Database:** PostgreSQL
 
 ---
 
-## ## Prerequisites
+## 📋 Prerequisites
 Make sure you have the following installed:
 
-### ### 1. Node.js (LTS Recommended)
+### 1. Node.js (LTS Recommended)
 * [Download from nodejs.org](https://nodejs.org/)
 * **Check installation:**
     ```bash
@@ -32,12 +36,12 @@ Make sure you have the following installed:
     npm -v
     ```
 
-### ### 2. Expo Go App (On Mobile Device)
+### 2. Expo Go App (On Mobile Device)
 Install **Expo Go** from your mobile app store:
 * **Android:** Play Store
 * **iOS:** App Store
 
-### ### 3. Android Setup (Optional but Recommended)
+### 3. Android Setup (Optional)
 * Android Studio & Android SDK
 * USB Debugging enabled
 * **Check environment:**
@@ -47,16 +51,16 @@ Install **Expo Go** from your mobile app store:
 
 ---
 
-## ## Project Setup
+## ⚙️ Project Setup
 
-### ### 1. Clone the Repository
+### 1. Clone the Repository
 ```bash
 git clone [https://github.com/lmsoftwaresolutions/papercheck_omr.git](https://github.com/lmsoftwaresolutions/papercheck_omr.git)
 cd papercheck_omr
 
 ```
 
-### ### 2. Install Dependencies
+### 2. Install Dependencies
 
 ```bash
 npm install
@@ -65,24 +69,25 @@ npm install
 
 ---
 
-## ## Running the Application
+## ▶️ Running the Application
 
-### ### Start Expo Development Server
+### Start Expo Development Server
 
 ```bash
 npx expo start
 
 ```
 
-> **Tip:** If you face cache issues, use `npx expo start -c`
+> [!TIP]
+> If you face cache issues, use `npx expo start -c`
 
-### ### Run on Android
+### Run on Android
 
 1. Open **Expo Go** on your Android phone.
 2. Scan the **QR code** in the terminal.
 3. *OR* (if emulator is running) press `a`.
 
-### ### Run on iOS
+### Run on iOS
 
 1. Open **Expo Go** on your iPhone.
 2. Scan the **QR code**.
@@ -90,16 +95,16 @@ npx expo start
 
 ---
 
-## ## Backend Setup (FastAPI)
+## 🖥 Backend Setup (FastAPI)
 
-### ### 1. Navigate to Backend Folder
+### 1. Navigate to Backend Folder
 
 ```bash
 cd backend
 
 ```
 
-### ### 2. Create Virtual Environment
+### 2. Create Virtual Environment
 
 **Windows:**
 
@@ -117,7 +122,7 @@ source venv/bin/activate
 
 ```
 
-### ### 3. Create Environment File
+### 3. Create Environment File
 
 Create a file named `.env`. You can copy from the example:
 
@@ -135,18 +140,17 @@ copy .env.example .env
 
 ```
 
-### ### 4. Install Backend Dependencies
+### 4. Install Backend Dependencies
 
 ```bash
 # If requirements.txt exists:
 pip install -r requirements.txt
 
-# Or install manually:
-pip install fastapi uvicorn sqlalchemy psycopg2-binary python-dotenv
+
 
 ```
 
-### ### 5. Run FastAPI Server
+### 5. Run FastAPI Server
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -155,17 +159,16 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-## ## Stop Services
+## 🛑 Stop Services
 
-* **Stop Backend/Frontend:** Press `Ctrl + C` in the respective terminal.
+* **Stop Backend/Frontend:** Press `Ctrl + C` in the terminal.
 
 ---
 
-## ## Project Structure
+## 📂 Project Structure
 
 ```text
 papercheck_omr/
-│
 ├── assets/             # Images and static files
 ├── screens/            # UI Components
 ├── navigation/         # App Routing
@@ -180,14 +183,12 @@ papercheck_omr/
 
 ```
 
-## ## License
+## 📄 License
 
 This project is for educational and learning purposes.
 
 ```
 
----
-
-**Would you like me to add a "How to Use" section explaining how to scan the OMR sheets once the app is running?**
+**Would you like me to help you create a "Screenshots" section to showcase the app on your GitHub profile?**
 
 ```
