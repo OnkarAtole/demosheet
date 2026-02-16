@@ -180,12 +180,13 @@ papercheck_omr/
 
 ```
 
-## 📄 License
+## 📄 generate_strong_secret_here properly
 
-This project is for educational and learning purposes.
+
+Run this command in terminal:
 
 ```
 
-**Would you like me to help you create a "Screenshots" section to showcase the app on your GitHub profile?**
+**python -c "import secrets; print(secrets.token_hex(32))"**
 
 ```
