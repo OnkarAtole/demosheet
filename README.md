@@ -37,7 +37,7 @@ https://nodejs.org/
 
 Check installation:
 
-```bash
+``````bash
 node -v
 npm -v
 ```
@@ -61,7 +61,7 @@ Install Expo Go:
 
 Check environment:
 
-```bash
+``````bash
 adb devices
 ```
 
@@ -71,14 +71,14 @@ adb devices
 
 ### 1️⃣ Clone the Repository
 
-```bash
+``````bash
 git clone https://github.com/lmsoftwaresolutions/papercheck_omr.git
 cd papercheck_omr
 ```
 
 ### 2️⃣ Install Dependencies
 
-```bash
+``````bash
 npm install
 ```
 
@@ -88,13 +88,13 @@ npm install
 
 Start Expo Development Server:
 
-```bash
+``````bash
 npx expo start
 ```
 
 If you face cache issues:
 
-```bash
+``````bash
 npx expo start -c
 ```
 
@@ -107,7 +107,7 @@ npx expo start -c
 
 OR (if emulator running) press:
 
-```bash
+``````bash
 r
 ```
 
@@ -123,32 +123,89 @@ On Windows, use real iPhone with Expo Go.
 
 ---
 
-##  Stop the Application
+## Environment Configuration
+###  Create Environment File
+Before running the application, you must set up your environment variables. Create a file named .env in the root (or backend) directory.
+
+#### 1 Copy from Example
+ use the following commands:
+
+#### macOS / Linux:
+
+``````bash
+cp .env.example .env
+```
+
+#### Windows (Command Prompt):
+
+``````bash
+copy .env.example .env
+```
+
+Windows (PowerShell):
+
+PowerShell
+
+``````bash
+cp .env.example .env
+```
+
+update .env file own credentials 
+
+(generate_strong_secret_here properly
+
+Run this command in terminal:
+
+python -c "import secrets; print(secrets.token_hex(32))")
+
+###
+
+
+## Backend Setup (FastAPI)
+### 1. Navigate to Backend Folder
+```bash
+cd backend
+```
+
+### 2. Create Virtual Environment
+Windows:
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+macOS / Linux:
+```
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+### 3. Install Backend Dependencies
+```bash
+# If requirements.txt exists:
+pip install -r requirements.txt
+```
+
+### 4. Run FastAPI Server
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+## Stop Services
+Stop Backend/Frontend: Press Ctrl + C in the respective terminal.
+
+
+
+##  Stop the Application frontend
 
 Press:
 
-```bash
+``````bash
 Ctrl + C
 ```
 
 ---
 
-## 📂 Project Structure
-
-```
-papercheck_omr/
-│
-├── assets/
-├── screens/
-├── navigation/
-├── App.js
-├── package.json
-└── README.md
-```
-
----
 
 
-## 📄 License
 
-This project is for educational and learning purposes.

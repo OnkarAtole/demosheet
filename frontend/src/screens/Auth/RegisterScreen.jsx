@@ -14,11 +14,23 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { signup } from "../../services/authService";
 
 const RegisterScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const handleRegister = () => {
+  const [name, setName] = useState("");
+const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
+const [OTP, setOTP] = useState("");
+
+
+  const handleRegister = async () => {
+    try {
+    await signup({ name, email, password });
     navigation.navigate("Login");
+  } catch (error) {
+    alert("Registration failed");
+  }
   };
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -50,6 +62,8 @@ const RegisterScreen = ({ navigation }) => {
                 placeholder="Your Name"
                 placeholderTextColor="#999"
                 style={styles.input}
+                value={name}
+                onChangeText={setName}
               />
             </View>
             <View style={styles.inputWrapper}>
@@ -58,6 +72,8 @@ const RegisterScreen = ({ navigation }) => {
                 placeholder="Enter Your Email"
                 placeholderTextColor="#999"
                 style={styles.input}
+                value={email}
+                onChangeText={setEmail}
               />
             </View>
             <View style={styles.inputWrapper}>
@@ -66,6 +82,8 @@ const RegisterScreen = ({ navigation }) => {
                 placeholder="Enter OTP"
                 placeholderTextColor="#999"
                 style={styles.input}
+                value={OTP}
+                onChangeText={setOTP}
               />
             </View>
             <View style={styles.inputWrapper}>
@@ -77,6 +95,8 @@ const RegisterScreen = ({ navigation }) => {
                   placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
                   style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
                 />
 
                 <TouchableOpacity

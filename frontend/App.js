@@ -8,8 +8,23 @@ import RegisterScreen from "./src/screens/Auth/RegisterScreen";
 import ForgotPasswordScreen from "./src/screens/Auth/ForgotPasswordScreen";
 import MainTabs from "./src/navigation/MainTabs";
 const Stack = createNativeStackNavigator();
+import { useEffect } from "react";
 
 export default function App() {
+  useEffect(() => {
+   const checkLogin = async () => {
+      const token = await AsyncStorage.getItem("token");
+
+      if (token) {
+         navigation.replace("MainTabs");
+      } else {
+         navigation.replace("Login");
+      }
+   };
+
+   checkLogin();
+}, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>

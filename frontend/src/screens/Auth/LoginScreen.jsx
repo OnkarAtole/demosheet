@@ -13,13 +13,23 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Ionicons } from "@expo/vector-icons";
+import { signin } from "../../services/authService";
+
+
 
 export default function LoginScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
-
-  const handleLogin = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const handleLogin =async() => {
     // Example navigation after login
-    navigation.navigate("MainTabs");
+    // navigation.navigate("MainTabs");
+       try {
+          await signin({ email, password });
+          navigation.replace("MainTabs");
+        } catch (error) {
+        alert("Invalid credentials");
+        }
   };
 
   return (
@@ -43,6 +53,8 @@ export default function LoginScreen({ navigation }) {
           placeholder="Enter Your Email"
           style={styles.input}
           placeholderTextColor="#999"
+          value={email}
+          onChangeText={setEmail}
         />
 
         {/* PASSWORD */}
@@ -53,6 +65,8 @@ export default function LoginScreen({ navigation }) {
             secureTextEntry={!showPassword}
             style={{ flex: 1 }}
             placeholderTextColor="#999"
+            value={password}
+            onChangeText={setPassword}
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <Ionicons

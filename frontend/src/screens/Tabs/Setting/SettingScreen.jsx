@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import EvilIcons from "react-native-vector-icons/EvilIcons";
+import { logout } from "../../../services/authService";
 
 const Setting = ({navigation}) => {
   const username = "Onkar";
@@ -30,9 +31,10 @@ const Setting = ({navigation}) => {
    const handleShare=()=>{
 
   }
-  const handleSignout=()=>{
-
-  }
+ const handleLogout = async () => {
+  await logout();
+  navigation.replace("Login");
+};
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <ScrollView
@@ -99,7 +101,7 @@ const Setting = ({navigation}) => {
                 <View style={{backgroundColor:"#e1c7c7",width:45,height:45,alignItems:"center",justifyContent:"center",borderRadius:50}}>
                   <MaterialIcons name="logout" size={30}/>
                 </View>
-                <TouchableOpacity onPress={handleSignout} style={{alignItems:"center",justifyContent:"center"}}>
+                <TouchableOpacity onPress={handleLogout} style={{alignItems:"center",justifyContent:"center"}}>
                   <Text style={styles.btnText}>Sign out</Text>
                 </TouchableOpacity>
                </View>
