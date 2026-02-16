@@ -1,5 +1,5 @@
 
-### 📄 README.md (GitHub Optimized)
+
 
 
 # React Native App (Expo) - PaperCheck OMR
