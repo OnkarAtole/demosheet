@@ -1,154 +1,193 @@
+I’ve compiled all your instructions into a single, structured `.md` file. Since I cannot "send" a physical file to your local drive directly, you can copy the content below and save it as **`README.md`**.
+
+### 📄 Markdown Content
+
+```markdown
 # React Native App (Expo)
 
-This is a cross-platform mobile application built using React Native with Expo.  
-The same codebase works on Android and iOS without platform-specific changes.
+This is a cross-platform mobile application built using **React Native** with **Expo**. The same codebase works on Android and iOS without platform-specific changes.
+
+## ## Features
+* **Single codebase** for Android & iOS
+* **Fast development** with Expo
+* **Hot Reload** / Fast Refresh
+* **Runs on real devices** using Expo Go
+* **Easy setup** and configuration
+
+## ## Tech Stack
+* **Frontend:** React Native, Expo, Tailwind CSS
+* **Backend:** FastAPI, Python
+* **Database:** PostgreSQL
 
 ---
 
-##  Features
-
-• Single codebase for Android & iOS  
-• Fast development with Expo  
-• Hot Reload / Fast Refresh  
-• Runs on real devices using Expo Go  
-• Easy setup and configuration  
-
----
-
-##  Tech Stack
-
-• React Native  
-• Expo  
-• FastAPI  
-• Python  
-• Tailwind CSS  
-• PostgreSQL  
-
----
-
-##  Prerequisites
-
+## ## Prerequisites
 Make sure you have the following installed:
 
-### 1️⃣ Node.js (LTS Recommended)
+### ### 1. Node.js (LTS Recommended)
+* [Download from nodejs.org](https://nodejs.org/)
+* **Check installation:**
+    ```bash
+    node -v
+    npm -v
+    ```
 
-Download from:  
-https://nodejs.org/
+### ### 2. Expo Go App (On Mobile Device)
+Install **Expo Go** from your mobile app store:
+* **Android:** Play Store
+* **iOS:** App Store
 
-Check installation:
-
-```bash
-node -v
-npm -v
-```
-
----
-
-### 2️⃣ Expo Go App (On Mobile Device)
-
-Install Expo Go:
-
-• Android → Play Store  
-• iOS → App Store  
-
----
-
-### 3️⃣ Android Setup (Optional but Recommended)
-
-• Android Studio  
-• Android SDK  
-• USB Debugging enabled  
-
-Check environment:
-
-```bash
-adb devices
-```
+### ### 3. Android Setup (Optional but Recommended)
+* Android Studio & Android SDK
+* USB Debugging enabled
+* **Check environment:**
+    ```bash
+    adb devices
+    ```
 
 ---
 
-##  Project Setup
+## ## Project Setup
 
-### 1️⃣ Clone the Repository
-
+### ### 1. Clone the Repository
 ```bash
-git clone https://github.com/lmsoftwaresolutions/papercheck_omr.git
+git clone [https://github.com/lmsoftwaresolutions/papercheck_omr.git](https://github.com/lmsoftwaresolutions/papercheck_omr.git)
 cd papercheck_omr
+
 ```
 
-### 2️⃣ Install Dependencies
+### ### 2. Install Dependencies
 
 ```bash
 npm install
+
 ```
 
 ---
 
-## ▶️ Run the Application
+## ## Running the Application
 
-Start Expo Development Server:
+### ### Start Expo Development Server
 
 ```bash
 npx expo start
+
 ```
 
-If you face cache issues:
+> **Tip:** If you face cache issues, use `npx expo start -c`
+
+### ### Run on Android
+
+1. Open **Expo Go** on your Android phone.
+2. Scan the **QR code** in the terminal.
+3. *OR* (if emulator is running) press `a`.
+
+### ### Run on iOS
+
+1. Open **Expo Go** on your iPhone.
+2. Scan the **QR code**.
+3. **Note:** iOS Simulator requires macOS and Xcode. On Windows, use a real iPhone with Expo Go.
+
+---
+
+## ## Backend Setup (FastAPI)
+
+### ### 1. Navigate to Backend Folder
 
 ```bash
-npx expo start -c
+cd backend
+
 ```
 
----
+### ### 2. Create Virtual Environment
 
-##  Run on Android
-
-1. Open Expo Go on Android phone  
-2. Scan the QR code  
-
-OR (if emulator running) press:
+**Windows:**
 
 ```bash
-r
+python -m venv venv
+venv\Scripts\activate
+
 ```
 
----
-
-##  Run on iOS
-
-1. Open Expo Go on iPhone  
-2. Scan QR code  
-
-⚠️ iOS Simulator requires macOS and Xcode.  
-On Windows, use real iPhone with Expo Go.
-
----
-
-##  Stop the Application
-
-Press:
+**macOS / Linux:**
 
 ```bash
-Ctrl + C
+python3 -m venv venv
+source venv/bin/activate
+
+```
+
+### ### 3. Create Environment File
+
+Create a file named `.env`. You can copy from the example:
+
+**macOS / Linux:**
+
+```bash
+cp .env.example .env
+
+```
+
+**Windows:**
+
+```bash
+copy .env.example .env
+
+```
+
+### ### 4. Install Backend Dependencies
+
+```bash
+# If requirements.txt exists:
+pip install -r requirements.txt
+
+# Or install manually:
+pip install fastapi uvicorn sqlalchemy psycopg2-binary python-dotenv
+
+```
+
+### ### 5. Run FastAPI Server
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
 ```
 
 ---
 
-## 📂 Project Structure
+## ## Stop Services
 
-```
+* **Stop Backend/Frontend:** Press `Ctrl + C` in the respective terminal.
+
+---
+
+## ## Project Structure
+
+```text
 papercheck_omr/
 │
-├── assets/
-├── screens/
-├── navigation/
-├── App.js
-├── package.json
-└── README.md
+├── assets/             # Images and static files
+├── screens/            # UI Components
+├── navigation/         # App Routing
+├── App.js              # Entry Point
+├── package.json        # Node Dependencies
+├── backend/
+│   ├── app/            # Logic & Models
+│   ├── main.py         # Entry Point
+│   ├── requirements.txt
+│   └── .env            # Environment Variables
+└── README.md           # Documentation
+
+```
+
+## ## License
+
+This project is for educational and learning purposes.
+
 ```
 
 ---
 
+**Would you like me to add a "How to Use" section explaining how to scan the OMR sheets once the app is running?**
 
-## 📄 License
-
-This project is for educational and learning purposes.
+```
