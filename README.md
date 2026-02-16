@@ -1,7 +1,7 @@
 
 ### 📄 README.md (GitHub Optimized)
 
-```markdown
+
 # React Native App (Expo) - PaperCheck OMR
 
 This is a cross-platform mobile application built using **React Native** with **Expo**. The same codebase works on Android and iOS without platform-specific changes.
@@ -52,7 +52,7 @@ Install **Expo Go** from your mobile app store:
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/lmsoftwaresolutions/papercheck_omr.git](https://github.com/lmsoftwaresolutions/papercheck_omr.git)
+git clone [https://github.com/lmsoftwaresolutions/papercheck_omr.git]
 cd papercheck_omr
 
 ```
