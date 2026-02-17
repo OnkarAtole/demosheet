@@ -2,58 +2,64 @@ import { StyleSheet, Text, TouchableOpacity, View ,FlatList} from "react-native"
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Modal, TextInput } from "react-native";             //add
+import { createClass, getClasses} from "../../../services/classService"; //add
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect } from "react";
 
 
 const ClassScreen = ({navigation}) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [newClassName, setNewClassName] = useState("");
+    const [classData, setClassData] = useState([]); 
+
+const fetchClasses = async () => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+    const data = await getClasses(token);
+
+    const formattedData = data.map((item) => ({
+      id: item.id.toString(),
+      class: item.classname,
+      students: 0,
+    }));
+
+    setClassData(formattedData);
+  } catch (error) {
+    console.log("Error fetching classes");
+  }
+};
 
 
-  const [classData,setClassData] = useState([
-  {
-    id: "1",
-    class: "FY BCA",
-    students: 60,
-  },
-  {
-    id: "2",
-    class: "SY BCA",
-    students: 55,
-  },
-  {
-    id: "3",
-    class: "TY BCA",
-    students: 48,
-  },
-  {
-    id: "4",
-    class: "MCA Sem I",
-    students: 72,
-  },
-  {
-    id: "5",
-    class: "MCA Sem II",
-    students: 65,
-  },
-])
+  useEffect(() => {
+  fetchClasses();
+}, []);
+
+
+
+
+  
 
  const handleAdd = () => {
   setModalVisible(true);
 };
 
-const handleSaveClass = () => {
-  if (!newClassName.trim()) return;
+ const handleSaveClass = async () => {
+    if (!newClassName.trim()) return;
 
-  const newClass = {
-    id: Date.now().toString(),
-    class: newClassName,
-    students: 0, // initially 0, will update from student table later
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      await createClass(newClassName, token);   // ✅ CHANGED (removed manual push)
+
+      await fetchClasses();   // ✅ CHANGED (refresh from backend instead)
+
+      setNewClassName("");
+      setModalVisible(false);
+    } catch (error) {
+      console.log("Error creating class", error);
+    }
   };
-
-  setClassData([...classData, newClass]);
-  setNewClassName("");
-  setModalVisible(false);
-};
 
   const handlePress = (item) => {
   navigation.navigate("StudentDetail", { classItem: item });
@@ -125,7 +131,7 @@ const handleSaveClass = () => {
 
         <FlatList
         data={classData}
-        keyExtractor={(item)=>item.id}
+        keyExtractor={(item) => item.id.toString()} 
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         />
