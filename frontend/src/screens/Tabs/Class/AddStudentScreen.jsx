@@ -67,9 +67,17 @@ console.log("Sending Data →", {
 
     navigation.goBack();
 
-  } catch (error) {
-    console.log(error);
+  }catch (error) {
+  const message = error.response?.data?.detail;
+
+  if (message === "Email already exists") {
+    alert("This email is already registered for another student.");
+  } else {
+    alert("Something went wrong. Please try again.");
   }
+
+  console.log("FULL ERROR:", error.response?.data);
+}
 };
 
 

@@ -11,6 +11,6 @@ class Class(Base):
     creator = relationship("User", back_populates="classes")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # exams = relationship("Exam", back_populates="class_ref", cascade="all, delete")
+    exams = relationship("Exam", back_populates="class_ref", cascade="all, delete")
     students = relationship("Student", back_populates="class_ref", cascade="all, delete")
     
