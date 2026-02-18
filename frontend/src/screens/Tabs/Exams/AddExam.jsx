@@ -10,6 +10,10 @@ import {
 import { Dropdown } from 'react-native-element-dropdown'
 import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect } from 'react';
+import { getClasses } from "../../../services/classService";
+import { createExam } from "../../../services/examService";   
 
 const AddExam = () => {
 
@@ -18,10 +22,12 @@ const AddExam = () => {
 
   const [subjectCount, setSubjectCount] = React.useState(null)
   const [subjects, setSubjects] = React.useState([])
+  const [examName, setExamName] = React.useState("")
 
   const [selectedClass, setSelectedClass] = React.useState(null)
   const [questionCount, setQuestionCount] = React.useState("")
 
+  const [classOptions, setClassOptions] = React.useState([]);
 
 
   const subjectOptions = Array.from({ length: 10 }, (_, i) => ({
@@ -43,12 +49,73 @@ const AddExam = () => {
   }
 
 
-//   dummy classes for dropdown
-const classOptions = [
-  { label: "FY BCA", value: "fybca" },
-  { label: "SY BCA", value: "sybca" },
-  { label: "TY BCA", value: "tybca" }
-]
+// //   dummy classes for dropdown
+// const classOptions = [
+//   { label: "FY BCA", value: "fybca" },
+//   { label: "SY BCA", value: "sybca" },
+//   { label: "TY BCA", value: "tybca" }
+// ]
+
+useEffect(() => {
+  fetchClasses();
+  
+}, []);
+
+const fetchClasses = async () => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const data = await getClasses(token);
+
+    const formatted = data.map(item => ({
+      label: item.classname,
+      value: item.id,
+    }));
+
+    setClassOptions(formatted);
+
+  } catch (error) {
+    console.log("Class fetch error:", error);
+  }
+};
+
+
+const handleCreateExam = async () => {
+ const token = await AsyncStorage.getItem("token");
+
+console.log("TOKEN VALUE:", token);
+
+  
+  if (!examName || !selectedClass || subjects.length === 0) {
+    alert("Please fill all required fields");
+    return;
+  }
+  
+
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+
+    const examPayload = {
+      exam_name: examName,
+      class_id: selectedClass,
+      roll_no_digit: rollDigits,
+      exam_set: examset,
+      subjects: subjects.map(sub => ({
+        sub_name: sub.name,
+        question_count: Number(sub.questionCount)
+      }))
+    };
+
+    await createExam(examPayload, token);
+
+    alert("Exam Created Successfully");
+
+  } catch (error) {
+    console.log("Create exam error:", error);
+    alert("Failed to create exam");
+  }
+};
+
 
 
 return (
@@ -76,6 +143,8 @@ return (
                 placeholder="Exam Name"
                 placeholderTextColor="#999"
                 style={styles.input}
+                value={examName}
+                onChangeText={setExamName}
               />
             </View>
 
@@ -198,7 +267,7 @@ return (
           <View style={[styles.submitBtnWrapper, { paddingHorizontal: 20 }]}>
             <Text
               style={styles.submitBtn}
-              onPress={() => console.log("Submit Exam")}
+              onPress={handleCreateExam}
             >
               Create Exam
             </Text>

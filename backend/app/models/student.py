@@ -10,3 +10,4 @@ class Student(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
     class_ref = relationship("Class", back_populates="students")
+    

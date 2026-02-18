@@ -7,12 +7,12 @@ from app.models.class_model import Class
 
 from app.models.user import User
 from app.core.security import get_current_user
-
+from app.models.student import Student
 
 router = APIRouter(prefix="/classes", tags=["Classes"])
 
 
-@router.post("/", response_model=ClassResponse)
+@router.post("/", response_model=ClassResponse,)
 def create_class(
     class_data: ClassCreate,
     db: Session = Depends(get_db),
@@ -29,3 +29,33 @@ def create_class(
     db.refresh(new_class)
 
     return new_class
+
+@router.get("/{class_id}", response_model=ClassResponse)
+def get_class(class_id: int, db: Session = Depends(get_db)):
+    class_instance = db.query(Class).filter(Class.id == class_id).first()
+    if not class_instance:
+        raise HTTPException(status_code=404, detail="Class not found")
+    return class_instance
+
+@router.get("/", response_model=list[ClassResponse])
+def list_classes(db: Session = Depends(get_db),current_user: User = Depends(get_current_user)):
+    classes = db.query(Class).all()
+    result = []   # ✅ ADDED: Create custom response list
+
+    for class_instance in classes:
+     
+        student_count = db.query(Student).filter(
+            Student.class_id == class_instance.id
+        ).count()
+
+        
+        result.append({
+            "id": class_instance.id,
+            "classname": class_instance.classname,
+            "created_by": class_instance.created_by,
+            "created_at": class_instance.created_at,
+            "student_count": student_count
+        })
+        
+
+    return result
