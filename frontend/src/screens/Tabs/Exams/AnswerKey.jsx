@@ -9,6 +9,9 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { saveAnswerKey } from "../../../services/examService";
+import AsyncStorage from "@react-native-async-storage/async-storage"; 
+
 
 export default function AnswerKey({ route, navigation }) {
 
@@ -61,11 +64,33 @@ export default function AnswerKey({ route, navigation }) {
     }));
   };
 
-  const handleSave = () => {
-    console.log("Saved Answer Key:", answers);
-  };
+ const handleSave = async () => {
+  try {
+    const token = await AsyncStorage.getItem("token");
 
-  // 🔥 Flatten subject-wise questions
+    // ✅ Total question count
+    const totalCount = flatQuestions.length;
+
+    const currentSetAnswers = answers[selectedSet] || {};
+
+    // ✅ Validation
+    if (Object.keys(currentSetAnswers).length !== totalCount) {
+      alert("Please answer all questions before saving.");
+      return;
+    }
+
+    await saveAnswerKey(examId, answers, token);
+
+    alert("Answer Key Saved Successfully");
+
+  } catch (error) {
+    alert("Failed to save answer key");
+  }
+};
+
+
+
+  
   const flatQuestions = [];
   let counter = 1;
 
@@ -140,9 +165,9 @@ export default function AnswerKey({ route, navigation }) {
 
         {/* Questions List */}
         <FlatList
-  data={subjectList}
-  keyExtractor={(item) => item.name}
-  renderItem={({ item }) => {
+        data={subjectList}
+        keyExtractor={(item) => item.name}
+        renderItem={({ item }) => {
     return (
       <View style={{ marginBottom: 25 }}>
         {/* Subject Heading */}

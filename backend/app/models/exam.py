@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -10,6 +10,7 @@ class Exam(Base):
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)   # or ForeignKey if class table exists
     roll_no_digit = Column(Integer, nullable=False)
     exam_set = Column(Integer, nullable=False)
+    exam_date = Column(Date, nullable=False)
     no_of_subject = Column(Integer, nullable=False)
 
     subjects = relationship(

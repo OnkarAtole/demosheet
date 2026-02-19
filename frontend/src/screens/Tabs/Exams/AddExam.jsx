@@ -6,6 +6,7 @@ import {
   Platform,
   TextInput,
   ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import React from "react";
@@ -14,6 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect } from "react";
 import { getClasses } from "../../../services/classService";
 import { createExam } from "../../../services/examService";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 const AddExam = () => {
   const [rollDigits, setRollDigits] = React.useState(1);
@@ -22,6 +24,8 @@ const AddExam = () => {
   const [subjectCount, setSubjectCount] = React.useState(null);
   const [subjects, setSubjects] = React.useState([]);
   const [examName, setExamName] = React.useState("");
+  const [examDate, setExamDate] = React.useState(new Date());
+  const [showPicker, setShowPicker] = React.useState(false);
 
   const [selectedClass, setSelectedClass] = React.useState(null);
   const [questionCount, setQuestionCount] = React.useState("");
@@ -83,6 +87,11 @@ const AddExam = () => {
 
     try {
       const token = await AsyncStorage.getItem("token");
+      const year = examDate.getFullYear();
+      const month = ("0" + (examDate.getMonth() + 1)).slice(-2);
+      const day = ("0" + examDate.getDate()).slice(-2);
+
+      const formattedDate = year + "-" + month + "-" + day;
 
       const examPayload = {
         exam_name: examName,
@@ -90,6 +99,7 @@ const AddExam = () => {
         class_id: Number(selectedClass),
         roll_no_digit: rollDigits,
         exam_set: examset,
+        exam_date: examDate.toISOString().split("T")[0],
         subjects: subjects.map((sub) => ({
           sub_name: sub.name,
           question_count: Number(sub.questionCount),
@@ -105,6 +115,8 @@ const AddExam = () => {
       setExamSet(1);
       setSubjectCount(null);
       setSubjects([]);
+      setExamDate(new Date());   // ✅ Reset to current date
+
     } catch (error) {
       console.log("FULL ERROR:", error.response?.data);
       console.log("STATUS:", error.response?.status);
@@ -144,6 +156,37 @@ const AddExam = () => {
                 value={examName}
                 onChangeText={setExamName}
               />
+            </View>
+
+            {/* Exam Date */}
+
+            {/* Exam Date */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.label}>Exam Date</Text>
+
+              <TouchableOpacity
+                style={styles.dateInput}
+                activeOpacity={0.7}
+                onPress={() => setShowPicker(true)}
+              >
+                <Text style={styles.dateText}>{examDate.toDateString()}</Text>
+
+                <Text style={styles.calendarIcon}>📅</Text>
+              </TouchableOpacity>
+
+              {showPicker && (
+                <DateTimePicker
+                  value={examDate}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowPicker(false);
+                    if (selectedDate) {
+                      setExamDate(selectedDate);
+                    }
+                  }}
+                />
+              )}
             </View>
 
             {/* Class Dropdown */}
@@ -370,6 +413,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 16,
     backgroundColor: "#fff",
+  },
+  dateInput: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+  },
+
+  dateText: {
+    fontSize: 16,
+    color: "#000",
+  },
+
+  calendarIcon: {
+    fontSize: 18,
   },
 
   inputRow: {

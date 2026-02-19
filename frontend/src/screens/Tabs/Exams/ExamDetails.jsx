@@ -9,11 +9,31 @@ import {
 
 const { width } = Dimensions.get("window");
 
-export default function ExamDetails({ route,navigation }) {
+export default function ExamDetails({ route, navigation }) {
   const { examData } = route.params;
 
-  const progress = 7;
-  const total = examData.questions;
+  // 🔥 CHANGE 1: Convert backend date to Date object
+  const examDate = new Date(examData.exam_date);
+  examDate.setHours(0, 0, 0, 0);
+
+  // 🔥 CHANGE 2: Create today date for status logic
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // 🔥 CHANGE 3: Dynamic Status Logic
+  let status = "";
+
+  if (examDate > today) {
+    status = "Incoming";
+  } else if (examDate.getTime() === today.getTime()) {
+    status = "Ongoing";
+  } else {
+    status = "Completed";
+  }
+
+  // 🔥 CHANGE 4: Use student_count instead of questions
+  const progress = 0;
+  const total = examData.student_count || 1;
 
   return (
     <View style={styles.container}>
@@ -21,26 +41,44 @@ export default function ExamDetails({ route,navigation }) {
 
       {/* Exam Card */}
       <View style={styles.card}>
-        {/* Date Box */}
+
+        {/* 🔥 CHANGE 5: Replace old date with formatted backend date */}
         <View style={styles.dateBox}>
-          <Text style={styles.dateText}>{examData.date}</Text>
-          <Text style={styles.dateText}>{examData.month}</Text>
+          <Text style={styles.dateText}>
+            {examDate.getDate()}
+          </Text>
+          <Text style={styles.dateText}>
+            {examDate.toLocaleString("default", { month: "short" })}
+          </Text>
         </View>
 
         {/* Middle */}
         <View style={styles.middle}>
-          <Text style={styles.title}>{examData.title}</Text>
-          <Text style={styles.questions}>? {examData.questions}</Text>
+
+          {/* 🔥 CHANGE 6: Replace title with exam_name */}
+          <Text style={styles.title}>
+            {examData.exam_name}
+          </Text>
+
+          {/* 🔥 CHANGE 7: Replace ? questions with student_count */}
+          <Text style={styles.questions}>
+            👥 {examData.student_count}
+          </Text>
         </View>
 
         {/* Right */}
         <View style={styles.right}>
+
+          {/* 🔥 CHANGE 8: Replace examData.status with calculated status */}
           <View style={styles.statusBadge}>
-            <Text>{examData.status}</Text>
+            <Text>{status}</Text>
           </View>
 
+          {/* 🔥 CHANGE 9: Replace class with class_name */}
           <View style={styles.courseBadge}>
-            <Text style={{ color: "#fff" }}>{examData.class}</Text>
+            <Text style={{ color: "#fff" }}>
+              {examData.class_name.toUpperCase()}
+            </Text>
           </View>
         </View>
       </View>
@@ -66,8 +104,8 @@ export default function ExamDetails({ route,navigation }) {
         <Text style={styles.generateText}>Generate OMR Sheet</Text>
       </TouchableOpacity>
 
-      {/* 2x2 Grid */}
-       <View style={styles.grid}>
+      {/* Grid */}
+      <View style={styles.grid}>
         <TouchableOpacity
           style={styles.optionBox}
           onPress={() =>
@@ -95,6 +133,7 @@ const renderOption = (title) => (
     <Text style={styles.optionText}>{title}</Text>
   </TouchableOpacity>
 );
+
 
 const styles = StyleSheet.create({
   container: {
@@ -126,7 +165,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ddd",
     padding: 12,
     alignItems: "center",
-    width: width * 0.18, // responsive width
+    width: width * 0.18,
   },
 
   dateText: {
@@ -159,13 +198,18 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
     marginBottom: 8,
+
+    minWidth: 90,        // ✅ ensures equal width
+    alignItems: "center" // ✅ center text
   },
 
   courseBadge: {
     backgroundColor: "#9e9e9e",
     paddingHorizontal: 15,
     paddingVertical: 6,
-    borderRadius: 5,
+    borderRadius: 20,     // 🔥 changed from 5 to 20 for professional pill look
+    minWidth: 90,         // ✅ equal width with status
+    alignItems: "center",
   },
 
   progressContainer: {

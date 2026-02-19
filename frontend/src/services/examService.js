@@ -20,3 +20,22 @@ export const createExam = async (examData, token) => {
     throw error;
   }
 };
+
+
+
+
+export const getExams = async (token) => {
+  try {
+    const response = await API.get("/exams/", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;
+
+  } catch (error) {
+    console.log("Get exams error:", error.response?.data || error.message);
+    throw error;
+  }
+};
