@@ -22,3 +22,27 @@ export const getToken = async () => {
 }
 
 
+// for otp 
+export const sendOtp = async (email) => {
+  return API.post("/auth/send-otp", { email });
+};
+
+export const verifyOtp = async (email, otp) => {
+  return API.post("/auth/verify-otp", { email, otp });
+};
+
+// forgot password
+export const forgotPasswordSendOtp = async (email) => {
+  return API.post("/auth/forgot-password/send-otp", { email });
+};
+
+export const forgotPasswordVerifyOtp = async (email, otp) => {
+  return API.post("/auth/forgot-password/verify-otp", { email, otp });
+};
+
+export const resetPassword = async (email, newPassword) => {
+  return API.post("/auth/reset-password", {
+    email,
+    new_password: newPassword,
+  });
+};

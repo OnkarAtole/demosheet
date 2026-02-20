@@ -11,7 +11,7 @@ import { Dropdown } from 'react-native-element-dropdown'
 import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-const AddExam = () => {
+const AddExam = ({ navigation }) => {
 
   const [rollDigits, setRollDigits] = React.useState(1)
   const [examset, setExamSet] = React.useState(1)
@@ -46,7 +46,7 @@ const AddExam = () => {
 //   dummy classes for dropdown
 const classOptions = [
   { label: "FY BCA", value: "fybca" },
-  { label: "SY BCA", value: "sybca" },
+  { label: "SY BCA", value: "sybca" },  
   { label: "TY BCA", value: "tybca" }
 ]
 
@@ -95,7 +95,13 @@ return (
 
             <Text
               style={styles.addClassText}
-              onPress={() => console.log("Navigate to Add Class")}
+             onPress={() =>
+                navigation.navigate("Classes", {
+                    screen: "AddClass",
+                })
+                }
+
+
             >
               + Add Class
             </Text>

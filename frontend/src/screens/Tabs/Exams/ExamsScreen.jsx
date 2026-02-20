@@ -83,7 +83,7 @@ const [exams, setExams] = useState([
       <View style={styles.header}>
         <Text style={styles.title}>Exams</Text>
 
-        <TouchableOpacity style={styles.addBtn}>
+        <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate("AddExam")}>
           <Text style={styles.addText}>Add Exam</Text>
         </TouchableOpacity>
       </View>
