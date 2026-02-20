@@ -84,6 +84,17 @@ const AddExam = () => {
       alert("Please fill all required fields");
       return;
     }
+    for (let i = 0; i < subjects.length; i++) {
+    if (!subjects[i].name.trim()) {
+      alert(`Please enter name for Subject ${i + 1}`);
+      return;
+    }
+
+    if (!subjects[i].questionCount || Number(subjects[i].questionCount) <= 0) {
+      alert(`Please enter valid question count for Subject ${i + 1}`);
+      return;
+    }
+  }
 
     try {
       const token = await AsyncStorage.getItem("token");
@@ -118,10 +129,12 @@ const AddExam = () => {
       setExamDate(new Date());   // ✅ Reset to current date
 
     } catch (error) {
-      console.log("FULL ERROR:", error.response?.data);
-      console.log("STATUS:", error.response?.status);
-      alert(JSON.stringify(error.response?.data));
-    }
+  if (error.response?.status === 400) {
+    alert("Exam already exists in this class");
+  } else {
+    alert("Failed to create exam");
+  }
+}
   };
 
   return (

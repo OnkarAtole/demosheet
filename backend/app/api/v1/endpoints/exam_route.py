@@ -84,35 +84,72 @@ def create_exam(
     return {"message": "Exam created successfully"}
 
 
+# @router.get("/")
+# def get_exams(
+#     db: Session = Depends(get_db),
+#     current_user: User = Depends(get_current_user)
+# ):
+#     exams = (
+#         db.query(
+#             Exam.id,
+#             Exam.exam_name,
+#             Exam.exam_date,
+#             Class.classname.label("class_name"),
+#             func.count(Student.id).label("student_count")
+#         )
+#         .join(Class, Exam.class_id == Class.id)
+#         .outerjoin(Student, Student.class_id == Class.id)
+#         .filter(Class.created_by == current_user.id)
+#         .group_by(Exam.id, Class.classname)
+#         .order_by(Exam.exam_date.desc())
+#         .all()
+#     )
+
+#     return [
+#     {
+#         "id": exam.id,
+#         "exam_name": exam.exam_name,
+#         "exam_date": exam.exam_date,
+#         "class_name": exam.class_name,
+#         "student_count": exam.student_count
+#     }
+#     for exam in exams
+# ]
+
 @router.get("/")
 def get_exams(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     exams = (
-        db.query(
-            Exam.id,
-            Exam.exam_name,
-            Exam.exam_date,
-            Class.classname.label("class_name"),
-            func.count(Student.id).label("student_count")
-        )
-        .join(Class, Exam.class_id == Class.id)
-        .outerjoin(Student, Student.class_id == Class.id)
+        db.query(Exam)
+        .join(Class)
         .filter(Class.created_by == current_user.id)
-        .group_by(Exam.id, Class.classname)
         .order_by(Exam.exam_date.desc())
         .all()
     )
 
-    return [
-    {
-        "id": exam.id,
-        "exam_name": exam.exam_name,
-        "exam_date": exam.exam_date,
-        "class_name": exam.class_name,
-        "student_count": exam.student_count
-    }
-    for exam in exams
-]
+    result = []
 
+    for exam in exams:
+        student_count = db.query(Student).filter(
+            Student.class_id == exam.class_id
+        ).count()
+
+        result.append({
+            "id": exam.id,
+            "exam_name": exam.exam_name,
+            "exam_date": exam.exam_date,
+            "exam_set": exam.exam_set,
+            "class_name": exam.class_ref.classname,
+            "student_count": student_count,
+            "subjects": [
+                {
+                    "name": sub.sub_name,
+                    "questions": sub.question_count
+                }
+                for sub in exam.subjects
+            ]
+        })
+
+    return result

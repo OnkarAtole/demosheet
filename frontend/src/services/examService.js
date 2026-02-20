@@ -39,3 +39,37 @@ export const getExams = async (token) => {
     throw error;
   }
 };
+
+
+
+export const saveAnswerKey = async (examId, answers, token) => {
+  return API.post(
+    `/answer-key/${examId}`,
+    { answers },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+};
+
+// ✅ Get Answer Key
+export const getAnswerKey = async (examId, token) => {
+  return API.get(
+    `/answer-key/${examId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+};
+
+export const getExamDetail = async (examId, token) => {
+  return API.get(`/exams/${examId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};

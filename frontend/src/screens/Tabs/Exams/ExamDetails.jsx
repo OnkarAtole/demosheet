@@ -8,7 +8,8 @@ import {
 } from "react-native";
 
 const { width } = Dimensions.get("window");
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getExamDetail } from "../../../services/examService";
 export default function ExamDetails({ route, navigation }) {
   const { examData } = route.params;
 
@@ -35,18 +36,37 @@ export default function ExamDetails({ route, navigation }) {
   const progress = 0;
   const total = examData.student_count || 1;
 
+
+//   const openAnswerKey = async () => {
+//   const token = await AsyncStorage.getItem("token");
+//   const response = await getExamDetail(examData.id, token);
+
+//   navigation.navigate("AnswerKey", {
+//     examId: response.data.id,
+//     totalSets: response.data.exam_set,
+//     subjects: response.data.subjects
+//   });
+// };
+const openAnswerKey = () => {
+  console.log("CLICKED ANSWER KEY");
+  console.log("DATA:", examData);
+
+  navigation.navigate("AnswerKey", {
+    examId: examData.id,
+    totalSets: examData.exam_set,
+    subjects: examData.subjects || []
+  });
+};
+
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Exams Details</Text>
 
       {/* Exam Card */}
       <View style={styles.card}>
-
         {/* 🔥 CHANGE 5: Replace old date with formatted backend date */}
         <View style={styles.dateBox}>
-          <Text style={styles.dateText}>
-            {examDate.getDate()}
-          </Text>
+          <Text style={styles.dateText}>{examDate.getDate()}</Text>
           <Text style={styles.dateText}>
             {examDate.toLocaleString("default", { month: "short" })}
           </Text>
@@ -54,21 +74,15 @@ export default function ExamDetails({ route, navigation }) {
 
         {/* Middle */}
         <View style={styles.middle}>
-
           {/* 🔥 CHANGE 6: Replace title with exam_name */}
-          <Text style={styles.title}>
-            {examData.exam_name}
-          </Text>
+          <Text style={styles.title}>{examData.exam_name}</Text>
 
           {/* 🔥 CHANGE 7: Replace ? questions with student_count */}
-          <Text style={styles.questions}>
-            👥 {examData.student_count}
-          </Text>
+          <Text style={styles.questions}>👥 {examData.student_count}</Text>
         </View>
 
         {/* Right */}
         <View style={styles.right}>
-
           {/* 🔥 CHANGE 8: Replace examData.status with calculated status */}
           <View style={styles.statusBadge}>
             <Text>{status}</Text>
@@ -109,10 +123,16 @@ export default function ExamDetails({ route, navigation }) {
         <TouchableOpacity
           style={styles.optionBox}
           onPress={() =>
-            navigation.navigate("AnswerKey", {
-              subjects: examData.subjects,
-              totalSets: 2,
-            })
+            // navigation.navigate("AnswerKey", {
+            //   subjects: examData.subjects,
+            //   totalSets: 2,
+            // })
+            // navigation.navigate("AnswerKey", {
+            //   subjects: examData.subjects || [],
+            //   totalSets: 2,
+            //   examId: examData.id, 
+            // })
+            openAnswerKey()
           }
         >
           <View style={styles.circle} />
@@ -133,7 +153,6 @@ const renderOption = (title) => (
     <Text style={styles.optionText}>{title}</Text>
   </TouchableOpacity>
 );
-
 
 const styles = StyleSheet.create({
   container: {
@@ -199,16 +218,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 8,
 
-    minWidth: 90,        // ✅ ensures equal width
-    alignItems: "center" // ✅ center text
+    minWidth: 90, // ✅ ensures equal width
+    alignItems: "center", // ✅ center text
   },
 
   courseBadge: {
     backgroundColor: "#9e9e9e",
     paddingHorizontal: 15,
     paddingVertical: 6,
-    borderRadius: 20,     // 🔥 changed from 5 to 20 for professional pill look
-    minWidth: 90,         // ✅ equal width with status
+    borderRadius: 20, // 🔥 changed from 5 to 20 for professional pill look
+    minWidth: 90, // ✅ equal width with status
     alignItems: "center",
   },
 

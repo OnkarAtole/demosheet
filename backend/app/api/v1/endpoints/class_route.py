@@ -30,14 +30,53 @@ router = APIRouter(prefix="/classes", tags=["Classes"])
 
 #     return new_class
 
+# @router.post("/", response_model=ClassResponse)
+# def create_class(
+#     class_data: ClassCreate,
+#     db: Session = Depends(get_db),
+#     current_user: User = Depends(get_current_user)
+# ):
+#     new_class = Class(
+#         classname=class_data.classname,
+#         created_by=current_user.id
+#     )
+
+#     db.add(new_class)
+#     db.commit()
+#     db.refresh(new_class)
+
+#     # 🔥 Return full response including student_count
+#     return {
+#         "id": new_class.id,
+#         "classname": new_class.classname,
+#         "created_by": new_class.created_by,
+#         "created_at": new_class.created_at,
+#         "student_count": 0
+#     }
 @router.post("/", response_model=ClassResponse)
 def create_class(
     class_data: ClassCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+   
+    normalized_name = class_data.classname.strip()
+
+   
+    existing_class = db.query(Class).filter(
+        Class.classname.ilike(normalized_name),
+        Class.created_by == current_user.id
+    ).first()
+
+    if existing_class:
+        raise HTTPException(
+            status_code=400,
+            detail="Class with this name already exists"
+        )
+
+    
     new_class = Class(
-        classname=class_data.classname,
+        classname=normalized_name,
         created_by=current_user.id
     )
 
@@ -45,7 +84,6 @@ def create_class(
     db.commit()
     db.refresh(new_class)
 
-    # 🔥 Return full response including student_count
     return {
         "id": new_class.id,
         "classname": new_class.classname,
@@ -53,7 +91,6 @@ def create_class(
         "created_at": new_class.created_at,
         "student_count": 0
     }
-
 
 @router.get("/{class_id}", response_model=ClassResponse)
 def get_class(class_id: int, db: Session = Depends(get_db)):

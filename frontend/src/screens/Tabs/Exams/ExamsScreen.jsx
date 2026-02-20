@@ -10,15 +10,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect } from "react";
 import { getExams } from "../../../services/examService";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
 
 export default function ExamsScreen({ navigation }) {
   // 🔥 Hardcoded API Response (Same structure backend will return)
   const [exams, setExams] = useState([]);
 
- useEffect(() => {
-  fetchExams();
-}, []);
-
+//  useEffect(() => {
+//   fetchExams();
+// }, []);
+useFocusEffect(
+  useCallback(() => {
+    fetchExams();
+  }, [])
+);
 const fetchExams = async () => {
   try {
     const token = await AsyncStorage.getItem("token");

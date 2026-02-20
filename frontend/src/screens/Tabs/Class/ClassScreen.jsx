@@ -68,8 +68,12 @@ const ClassScreen = ({ navigation }) => {
       setNewClassName("");
       setModalVisible(false);
     } catch (error) {
-      console.log("Error creating class", error);
-    }
+  if (error.response?.status === 400) {
+    alert("Class already exists");
+  } else {
+    alert("Something went wrong");
+  }
+}
   };
 
   const handlePress = (item) => {
