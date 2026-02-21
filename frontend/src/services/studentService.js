@@ -44,3 +44,26 @@ export const getStudentsByClass = async (classId, token) => {
     throw error;
   }
 };
+
+// Bulk Create Students 
+export const bulkCreateStudents = async (students, token) => {
+  try {
+    const response = await API.post(
+      "/students/bulk/",   
+      students,            
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.log(
+      "Bulk create error:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};

@@ -118,6 +118,7 @@ console.log("Sending Data →", {
             placeholderTextColor="#999"
             value={rollNo}
             onChangeText={setRollNo}
+            keyboardType="numeric"
             style={styles.input}
             />
          </View>

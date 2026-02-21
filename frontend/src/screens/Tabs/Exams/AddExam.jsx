@@ -221,7 +221,13 @@ const AddExam = () => {
 
             <Text
               style={styles.addClassText}
-              onPress={() => console.log("Navigate to Add Class")}
+             onPress={() =>
+                navigation.navigate("Classes", {
+                    screen: "AddClass",
+                })
+                }
+
+
             >
               + Add Class
             </Text>

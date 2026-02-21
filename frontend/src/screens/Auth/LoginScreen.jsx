@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useEffect  } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Ionicons } from "@expo/vector-icons";
 import { signin } from "../../services/authService";
+
+// for auto loign wiht google and ios
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
+import * as AuthSession from "expo-auth-session";
+
+
+
+WebBrowser.maybeCompleteAuthSession();
+// variable import from env
 
 
 
@@ -31,6 +42,29 @@ export default function LoginScreen({ navigation }) {
         alert("Invalid credentials");
         }
   };
+
+  // google login
+const [, response, promptAsync] = Google.useAuthRequest({
+  expoClientId: "578084463356-e9gf85tbbt04cmbcii70c2qluarmk4f2.apps.googleusercontent.com",
+  webClientId:  "578084463356-ben4h5t4cvkeqpf0ik4pvqs3a84rnor5.apps.googleusercontent.com",
+  androidClientId: "578084463356-9tgh0o4um0bd3rkctd2t690ojva1ndno.apps.googleusercontent.com",
+//   redirectUri: AuthSession.makeRedirectUri({
+//   useProxy: true,
+// }),
+
+});
+
+
+
+useEffect(() => {
+  if (response?.type === "success") {
+    const { authentication } = response;
+    console.log("Google Token:", authentication?.accessToken);
+
+    // Next step: send token to backend
+  }
+}, [response]);
+
 
   return (
     <SafeAreaView style={{ flex: 1,backgroundColor:"white"}}>
@@ -109,12 +143,23 @@ export default function LoginScreen({ navigation }) {
             }}
             style={styles.icon}
           />
-          <Image
+          {/* <Image
             source={{
               uri: "https://img.icons8.com/color/48/google-logo.png",
             }}
             style={styles.icon}
-          />
+          /> */}
+
+<TouchableOpacity onPress={() => promptAsync({ useProxy: true })}>
+
+  <Image
+    source={{
+        uri: "https://img.icons8.com/color/48/google-logo.png",
+    }}
+    style={styles.icon}
+  />
+</TouchableOpacity>
+
         </View>
 
         {/* REGISTER */}

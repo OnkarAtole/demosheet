@@ -7,9 +7,11 @@ from app.core.config import settings
 from app.db.session import engine
 from app.db.base import Base
 from app.models.user import User  # import models so SQLAlchemy registers them
+from fastapi.staticfiles import StaticFiles   
 
 
 app = FastAPI(title=settings.PROJECT_NAME)
+app.mount("/static", StaticFiles(directory="static"), name="static")  
 
 # 🔥 CREATE TABLES (TEMPORARY)
 Base.metadata.create_all(bind=engine)

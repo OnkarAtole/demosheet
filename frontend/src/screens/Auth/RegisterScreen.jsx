@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { signup } from "../../services/authService";
+import { signup ,sendOtp,verifyOtp} from "../../services/authService";
 
 const RegisterScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -24,14 +24,43 @@ const [password, setPassword] = useState("");
 const [OTP, setOTP] = useState("");
 
 
+// current change 5.06  17_02
+const [otpSent, setOtpSent] = useState(false);
+const [otpVerified, setOtpVerified] = useState(false);
+const [loadingOtp, setLoadingOtp] = useState(false);
+
+const isValidEmail = (email) => {
+  return /\S+@\S+\.\S+/.test(email);
+};
   const handleRegister = async () => {
-    try {
-    await signup({ name, email, password });
-    navigation.navigate("Login");
-  } catch (error) {
-    alert("Registration failed");
+  if (!otpVerified) {
+    alert("Please verify your email first");
+    return;
   }
-  };
+
+  try {
+    await signup({ name, email, password });
+    alert("Registration successful");
+    navigation.navigate("Login");
+  // } catch (error) {
+  //   alert(error?.response?.data?.detail || "Registration failed");
+  // }
+  }catch (error) {
+  let message = "Registration failed";
+
+  if (error?.response?.data?.detail) {
+    if (Array.isArray(error.response.data.detail)) {
+      message = error.response.data.detail[0]?.msg || message;
+    } else {
+      message = error.response.data.detail;
+    }
+  }
+
+  alert(message);
+}
+
+};
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <KeyboardAvoidingView
@@ -73,20 +102,112 @@ const [OTP, setOTP] = useState("");
                 placeholderTextColor="#999"
                 style={styles.input}
                 value={email}
-                onChangeText={setEmail}
+                // onChangeText={setEmail}
+                 editable={!otpSent}
+                  onChangeText={(text) => setEmail(text.trimStart())}
               />
             </View>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.label}>OTP</Text>
-              <TextInput
-                placeholder="Enter OTP"
-                placeholderTextColor="#999"
-                style={styles.input}
-                value={OTP}
-                onChangeText={setOTP}
-              />
-            </View>
-            <View style={styles.inputWrapper}>
+            
+            
+            {/* new logic for otp */}
+      <View style={{ width: "100%", marginTop: 12 }}>
+  <View style={styles.otpRow}>
+    
+    <View style={[styles.inputWrapper, { flex: 0.65 }]}>
+      <Text style={styles.label}>OTP</Text>
+
+      <TextInput
+        placeholder="Enter OTP"
+        placeholderTextColor="#999"
+        style={styles.input}
+        value={OTP}
+        onChangeText={setOTP}
+        editable={otpSent && !otpVerified}
+      />
+    </View>
+
+    {!otpVerified && (
+      <TouchableOpacity
+        style={[styles.otpButtonNew, { opacity: loadingOtp ? 0.6 : 1 }]}
+        disabled={loadingOtp}
+        onPress={async () => {
+            if (!email || email.trim() === "") {
+              alert("Please enter email first");
+              return;
+            }
+
+            if (!isValidEmail(email.trim())) {
+              alert("Please enter valid email format");
+              return;
+            }
+
+            if (otpSent && !OTP) {
+              alert("Please enter OTP");
+              return;
+            }
+
+            try {
+              setLoadingOtp(true);
+
+              if (!otpSent) {
+                await sendOtp(email.trim());
+                setOtpSent(true);
+                alert("OTP sent to your email");
+              } else {
+                await verifyOtp(email.trim(), OTP);
+                setOtpVerified(true);
+                alert("OTP verified successfully");
+              }
+            } catch (error) {
+              let message = "Something went wrong";
+
+              if (error?.response?.data?.detail) {
+                if (Array.isArray(error.response.data.detail)) {
+                  message = error.response.data.detail[0]?.msg || message;
+                } else {
+                  message = error.response.data.detail;
+                }
+              }
+
+              alert(message);
+            } finally {
+              setLoadingOtp(false);
+            }
+          }}
+      >
+        <Text style={styles.otpButtonTextNew}>
+                        {loadingOtp ? otpSent
+                            ? "Verifying..."
+                            : "Sending..."
+                          : !otpSent
+                          ? "Get OTP"
+                          : "Verify"}
+                      </Text>
+      </TouchableOpacity>
+    )}
+  </View>
+
+  {otpSent && !otpVerified && (
+    <TouchableOpacity
+      onPress={() => {
+        setOtpSent(false);
+        setOtpVerified(false);
+        setOTP("");
+      }}
+      style={{ alignSelf: "flex-end", marginTop: 6 }}
+    >
+      <Text style={{ color: "red", fontSize: 12 }}>
+        Change Email
+      </Text>
+    </TouchableOpacity>
+  )}
+</View>
+
+
+              {/* otp verification end */}
+              <View style={styles.inputWrapper}>
+
+
               <Text style={styles.label}>Password</Text>
 
               <View style={styles.inputRow}>
@@ -97,6 +218,8 @@ const [OTP, setOTP] = useState("");
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
+                  editable={otpVerified}
+
                 />
 
                 <TouchableOpacity
@@ -110,12 +233,25 @@ const [OTP, setOTP] = useState("");
                 </TouchableOpacity>
               </View>
             </View>
-            <TouchableOpacity
+            {/* <TouchableOpacity
+            
               style={styles.registerbtn}
               onPress={handleRegister}
             >
               <Text style={styles.registerText}>Register</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
+
+              <TouchableOpacity
+                style={[
+                  styles.registerbtn,
+                  { backgroundColor: otpVerified ? "#000" : "#c8c0c0" }
+                ]}
+                onPress={handleRegister}
+                disabled={!otpVerified}
+              >
+                <Text style={styles.registerText}>Register</Text>
+              </TouchableOpacity>
+
 
             <View style={styles.linebox}>
               <View style={styles.line} />
@@ -211,11 +347,10 @@ const styles = StyleSheet.create({
     marginTop: 15,
     backgroundColor: "#000",
     width: "100%",
-    borderRadius: "25",
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 15,
-    borderRadius: 25,
   },
   registerText: {
     color: "white",
@@ -244,4 +379,49 @@ const styles = StyleSheet.create({
     height: 45,
     marginHorizontal: 10,
   },
-});
+
+// otp button style
+otpLabel: {
+  marginLeft: 20,
+  marginBottom: 8,
+  fontSize: 14,
+  color: "#777",
+},
+
+otpRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+},
+
+otpInputContainer: {
+  flex: 0.65,
+  borderWidth: 1,
+  borderColor: "#E5E5E5",
+  borderRadius: 30,
+  paddingHorizontal: 20,
+  paddingVertical: 12,
+  backgroundColor: "#fff",
+},
+
+otpInput: {
+  fontSize: 16,
+},
+
+otpButtonNew: {
+  flex: 0.3,
+  backgroundColor: "#4A55A2",
+height: 60,
+
+  borderRadius: 30,
+  alignItems: "center",
+  justifyContent: "center",
+  elevation: 3,
+},
+
+otpButtonTextNew: {
+  color: "white",
+  fontWeight: "600",
+  fontSize: 13,
+}
+})
