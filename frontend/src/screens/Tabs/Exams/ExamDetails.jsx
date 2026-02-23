@@ -48,8 +48,8 @@ export default function ExamDetails({ route, navigation }) {
 //   });
 // };
 const openAnswerKey = () => {
-  console.log("CLICKED ANSWER KEY");
-  console.log("DATA:", examData);
+  // console.log("CLICKED ANSWER KEY");
+  // console.log("DATA:", examData);
 
   navigation.navigate("AnswerKey", {
     examId: examData.id,

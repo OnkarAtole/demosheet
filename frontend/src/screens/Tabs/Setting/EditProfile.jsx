@@ -1,16 +1,70 @@
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView,KeyboardAvoidingView,Platform} from "react-native";
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRoute } from "@react-navigation/native";
+// import { useRoute } from "@react-navigation/native";
 import {Ionicons} from "@expo/vector-icons"
+import { useEffect } from "react";
+import { getCurrentUser, updateProfile } from "../../../services/userService";
 
 const EditProfile = ({navigation}) => {
-  const [showPassword,setShowPassword]=useState("");
-  const route = useRoute();
+  const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState("");
+const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
+const [confirmPassword, setConfirmPassword] = useState("");
+const [loading, setLoading] = useState(false);
+  // const route = useRoute();
   // const { username } = route.username; // 👈 received class
-  const handleupdate=()=>{
+  useEffect(() => {
+  fetchUser();
+}, []);
 
+const fetchUser = async () => {
+  try {
+    const data = await getCurrentUser();
+    setName(data.name);
+    setEmail(data.email);
+  } catch (error) {
+    console.log("Fetch user error:", error);
   }
+};
+
+const handleupdate = async () => {
+  if (password || confirmPassword) {
+  if (!password || !confirmPassword) {
+    alert("Please fill both password fields");
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    alert("Passwords do not match");
+    return;
+  }
+
+  if (password.length < 6) {
+    alert("Password must be at least 6 characters");
+    return;
+  }
+}
+  try {
+    setLoading(true);
+
+    await updateProfile({
+      name,
+      email,
+      password: password || undefined,
+    });
+
+    alert("Profile updated successfully");
+    navigation.goBack();
+
+  } catch (error) {
+    console.log("Update error:", error);
+    alert("Update failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -33,6 +87,8 @@ const EditProfile = ({navigation}) => {
          <View style={styles.inputWrapper}>
             <Text style={styles.label}>Name</Text>
             <TextInput
+            value={name}
+            onChangeText={setName}
             placeholder="Enter a student name"
             placeholderTextColor="#999"
             style={styles.input}
@@ -41,6 +97,8 @@ const EditProfile = ({navigation}) => {
          <View style={styles.inputWrapper}>
             <Text style={styles.label}>Email</Text>
             <TextInput
+            value={email}
+            onChangeText={setEmail}
             placeholder="Enter a your email"
             placeholderTextColor="#999"
             style={styles.input}
@@ -52,6 +110,8 @@ const EditProfile = ({navigation}) => {
 
               <View style={styles.inputRow}>
                 <TextInput
+                value={password}
+                onChangeText={setPassword}
                   placeholder="Enter your password"
                   placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
@@ -75,6 +135,8 @@ const EditProfile = ({navigation}) => {
 
               <View style={styles.inputRow}>
                 <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
                   placeholder="Enter your password"
                   placeholderTextColor="#999"
                   secureTextEntry={!showPassword}

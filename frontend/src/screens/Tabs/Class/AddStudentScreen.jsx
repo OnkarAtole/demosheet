@@ -41,12 +41,12 @@ if (isNaN(parseInt(rollNo))) {
   return;
 }
 
-console.log("Sending Data →", {
-    name: studentName,
-    roll_no: parseInt(rollNo),
-    email: email,
-    class_id: parseInt(classId),
-  });
+// console.log("Sending Data →", {
+//     name: studentName,
+//     roll_no: parseInt(rollNo),
+//     email: email,
+//     class_id: parseInt(classId),
+//   });
   try {
     const token = await AsyncStorage.getItem("token");
 

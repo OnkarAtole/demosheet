@@ -62,7 +62,7 @@ const handleUpload = async () => {
       return;
     }
 
-    console.log("Parsed Data:", parsedData);
+    // console.log("Parsed Data:", parsedData);
 
     // ✅ Format Data Safely
     const formattedData = parsedData.map((item) => {
@@ -81,7 +81,7 @@ const handleUpload = async () => {
   };
 });
 
-    console.log("Formatted Data:", formattedData);
+    // console.log("Formatted Data:", formattedData);
 
     const token = await AsyncStorage.getItem("token");
 
@@ -102,7 +102,7 @@ const downloadDemoFile = () => {
 
   const fileUrl = `${rootUrl}/static/student_demo.xlsx`;
 
-  console.log("DOWNLOAD URL:", fileUrl);
+  // console.log("DOWNLOAD URL:", fileUrl);
 
   Linking.openURL(fileUrl);
 };
@@ -118,7 +118,7 @@ const downloadDemoFile = () => {
         <View style={styles.uploadBox}>
           <MaterialIcons name="upload-file" size={50} color="#1f3c88" />
           <Text style={styles.uploadText}>
-            Upload Excel (.xlsx) or CSV file
+            Upload Excel (.xlsx) file
           </Text>
         </View>
 

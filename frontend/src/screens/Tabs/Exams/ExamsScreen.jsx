@@ -28,10 +28,10 @@ useFocusEffect(
 const fetchExams = async () => {
   try {
     const token = await AsyncStorage.getItem("token");
-    console.log("TOKEN:", token);
+    // console.log("TOKEN:", token);
 
     const data = await getExams(token);
-    console.log("EXAMS DATA:", data);
+    // console.log("EXAMS DATA:", data);
 
     setExams(data);
   } catch (error) {

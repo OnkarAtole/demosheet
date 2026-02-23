@@ -78,7 +78,7 @@ const AddExam = () => {
   const handleCreateExam = async () => {
     const token = await AsyncStorage.getItem("token");
 
-    console.log("TOKEN VALUE:", token);
+    // console.log("TOKEN VALUE:", token);
 
     if (!examName || !selectedClass || subjects.length === 0) {
       alert("Please fill all required fields");
@@ -213,7 +213,7 @@ const AddExam = () => {
                 placeholder="Select class"
                 value={selectedClass}
                 onChange={(item) => {
-                  console.log("Selected Class:", item); // 👈 debug added
+                  // console.log("Selected Class:", item); // 👈 debug added
                   setSelectedClass(item.value);
                 }}
               />
