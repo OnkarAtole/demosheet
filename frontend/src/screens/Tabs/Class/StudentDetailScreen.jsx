@@ -1,25 +1,61 @@
-import { StyleSheet, Text, TouchableOpacity, View, FlatList } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  FlatList,
+} from "react-native";
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute } from "@react-navigation/native";
-
-const StudentDetailScreen = ({navigation}) => {
-
+import { useFocusEffect } from "@react-navigation/native";
+import { getStudentsByClass } from "../../../services/studentService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+const StudentDetailScreen = ({ navigation }) => {
   const route = useRoute();
   const { classItem } = route.params; // 👈 selected class
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  // const [students, setStudents] = useState([
+  //   { id: "1", name: "Onkar Atole" },
+  //   { id: "2", name: "Rahul Patil" },
+  //   { id: "3", name: "Sneha Kulkarni" },
+  // ]);
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
 
-  const [students, setStudents] = useState([
-    { id: "1", name: "Onkar Atole" },
-    { id: "2", name: "Rahul Patil" },
-    { id: "3", name: "Sneha Kulkarni" },
-  ]);
+      const token = await AsyncStorage.getItem("token");
 
+      const data = await getStudentsByClass(classItem.id, token);
+
+      const formattedData = data.map((item) => ({
+        id: item.id.toString(),
+        name: item.name,
+      }));
+
+      setStudents(formattedData);
+    } catch (error) {
+      console.log(
+        "Fetch students error:",
+        error.response?.data || error.message,
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchStudents();
+    }, []),
+  );
 
   const handleAddStudent = () => {
-  navigation.navigate("AddStudent", {
-    classItem: classItem,   // 👈 passing selected class
-  });
-};
+    navigation.navigate("AddStudent", {
+      classId: classItem.id,
+    });
+  };
 
   const renderStudent = ({ item }) => (
     <View style={styles.studentCard}>
@@ -30,7 +66,6 @@ const StudentDetailScreen = ({navigation}) => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <View style={styles.container}>
-
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.title}>{classItem.class}</Text>
@@ -39,6 +74,12 @@ const StudentDetailScreen = ({navigation}) => {
           </TouchableOpacity>
         </View>
 
+        {students.length === 0 && !loading && (
+          <Text style={{ marginTop: 20, color: "gray" }}>
+            No students in this class
+          </Text>
+        )}
+
         {/* STUDENT LIST */}
         <FlatList
           data={students}
@@ -46,7 +87,6 @@ const StudentDetailScreen = ({navigation}) => {
           renderItem={renderStudent}
           showsVerticalScrollIndicator={false}
         />
-
       </View>
     </SafeAreaView>
   );

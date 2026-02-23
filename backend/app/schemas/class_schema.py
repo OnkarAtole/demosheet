@@ -20,6 +20,7 @@ class ClassResponse(ClassBase):
     id: int
     created_by: int
     created_at: datetime
+    student_count: int 
 
     class Config:
         from_attributes = True

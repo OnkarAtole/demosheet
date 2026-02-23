@@ -37,3 +37,17 @@ export const getClasses = async (token) => {
     throw error;
   }
 };
+export const getClassById = async (classId, token) => {
+  try {
+    const response = await API.get(`/classes/${classId}/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data;   // ✅ ADD THIS
+  } catch (error) {
+    console.log("Fetch class by ID error:", error.response?.data || error.message);
+    throw error;
+  }
+};

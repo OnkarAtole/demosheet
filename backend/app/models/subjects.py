@@ -11,3 +11,5 @@ class Subject(Base):
     exam_id = Column(Integer, ForeignKey("exams.id"), nullable=False)
     exam_ref = relationship("Exam", back_populates="subjects")
     
+
+

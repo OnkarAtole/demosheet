@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const signup = async (data) => {
   return API.post("/auth/signup", data);
+  
 };
 
 export const signin = async (data) => {

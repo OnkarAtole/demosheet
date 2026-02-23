@@ -3,27 +3,84 @@ import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute } from "@react-navigation/native";
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createStudent } from "../../../services/studentService";
+
+
 const AddStudentScreen = ({navigation}) => {
 
   const route = useRoute();
-  const { classItem } = route.params; // 👈 received class
+  const { classId } = route.params; // 👈 received class
 
   const [studentName, setStudentName] = useState("");
 
+  const [rollNo, setRollNo] = useState("");
+  const [email, setEmail] = useState("");
   const handleSaveStudent = () => {
-    console.log("Student:", studentName);
-    console.log("Class:", classItem.class);
+    // console.log("Student:", studentName);
+    // console.log("Class:", classItem.class);
   };
 
   const handleBulkAdd = () => {
+
+
+
   navigation.navigate("BulkStudentUpload", {
-    classItem: classItem,   // 👈 pass selected class
+    classId: classId,   // 👈 pass selected class
   });
 };
 
-  const handleAdd=()=>{
-
+const handleAdd = async () => {
+  if (!studentName || !rollNo || !email) {
+    alert("Please fill all fields");
+    return;
   }
+
+if (isNaN(parseInt(rollNo))) {
+  alert("Roll No must be a number");
+  return;
+}
+
+// console.log("Sending Data →", {
+//     name: studentName,
+//     roll_no: parseInt(rollNo),
+//     email: email,
+//     class_id: parseInt(classId),
+//   });
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+    await createStudent(
+      {
+        name: studentName,
+        roll_no: parseInt(rollNo),
+        email: email,
+        class_id: parseInt(classId),
+      },
+      token
+    );
+
+    // Clear inputs after success
+    setStudentName("");
+    setRollNo("");
+    setEmail("");
+
+    navigation.goBack();
+
+  }catch (error) {
+  const message = error.response?.data?.detail;
+
+  if (message === "Email already exists") {
+    alert("This email is already registered for another student.");
+  } else {
+    alert("Something went wrong. Please try again.");
+  }
+
+  console.log("FULL ERROR:", error.response?.data);
+}
+};
+
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
        <KeyboardAvoidingView
@@ -49,6 +106,8 @@ const AddStudentScreen = ({navigation}) => {
             <TextInput
             placeholder="Enter a student name"
             placeholderTextColor="#999"
+            value={studentName}
+            onChangeText={setStudentName}
             style={styles.input}
             />
          </View>
@@ -57,6 +116,9 @@ const AddStudentScreen = ({navigation}) => {
             <TextInput
             placeholder="Enter a student Roll NO"
             placeholderTextColor="#999"
+            value={rollNo}
+            onChangeText={setRollNo}
+            keyboardType="numeric"
             style={styles.input}
             />
          </View>
@@ -65,6 +127,8 @@ const AddStudentScreen = ({navigation}) => {
             <TextInput
             placeholder="Enter a student Email"
             placeholderTextColor="#999"
+            value={email}
+            onChangeText={setEmail}
             style={styles.input}
             />
          </View>
