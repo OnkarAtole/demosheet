@@ -17,7 +17,7 @@ import { getClasses } from "../../../services/classService";
 import { createExam } from "../../../services/examService";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
-const AddExam = () => {
+const AddExam = ({navigation}) => {
   const [rollDigits, setRollDigits] = React.useState(1);
   const [examset, setExamSet] = React.useState(1);
 
