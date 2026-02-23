@@ -73,3 +73,12 @@ export const getExamDetail = async (examId, token) => {
     },
   });
 };
+
+
+
+
+export const generateOMR = async (examId) => {
+   return API.get(`/exams/generate-omr/${examId}`, {
+    responseType: "blob",   
+  });
+};

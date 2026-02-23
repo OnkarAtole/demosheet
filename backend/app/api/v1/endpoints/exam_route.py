@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.exam import Exam
@@ -9,6 +10,7 @@ from app.core.security import get_current_user
 from app.models.class_model import Class
 from sqlalchemy import func
 from app.models.student import Student
+from app.utils.pro_omr_generator import generate_pro_omr
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
 
@@ -153,3 +155,42 @@ def get_exams(
         })
 
     return result
+
+
+
+
+# @router.get("/generate-omr/{exam_id}")
+# def generate_omr(exam_id: int, db: Session = Depends(get_db)):
+#     exam = db.query(Exam).filter(Exam.id == exam_id).first()
+#     pdf = generate_pro_omr(exam)
+
+#     return StreamingResponse(
+#         pdf,
+#         media_type="application/pdf",
+#         headers={
+#             "Content-Disposition": f"attachment; filename=OMR_{exam.exam_name}.pdf"
+#         }
+#     )
+
+
+@router.get("/generate-omr/{exam_id}")
+def generate_omr(exam_id: int, db: Session = Depends(get_db)):
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    # 🔥 Now function returns 2 values
+    pdf_buffer, total_pages = generate_pro_omr(exam)
+
+    # 🔥 Save page count in DB
+    exam.total_pages = total_pages
+    db.commit()
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=OMR_{exam.exam_name}.pdf"
+        }
+    )
