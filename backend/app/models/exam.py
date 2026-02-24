@@ -12,6 +12,7 @@ class Exam(Base):
     exam_set = Column(Integer, nullable=False)
     exam_date = Column(Date, nullable=False)
     no_of_subject = Column(Integer, nullable=False)
+    total_pages = Column(Integer, default=1)
 
     subjects = relationship(
         "Subject",

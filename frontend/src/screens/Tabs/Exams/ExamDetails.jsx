@@ -10,6 +10,9 @@ import {
 const { width } = Dimensions.get("window");
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getExamDetail } from "../../../services/examService";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import { generateOMR } from "../../../services/examService";
 export default function ExamDetails({ route, navigation }) {
   const { examData } = route.params;
 
@@ -36,28 +39,50 @@ export default function ExamDetails({ route, navigation }) {
   const progress = 0;
   const total = examData.student_count || 1;
 
+  //   const openAnswerKey = async () => {
+  //   const token = await AsyncStorage.getItem("token");
+  //   const response = await getExamDetail(examData.id, token);
 
-//   const openAnswerKey = async () => {
-//   const token = await AsyncStorage.getItem("token");
-//   const response = await getExamDetail(examData.id, token);
+  //   navigation.navigate("AnswerKey", {
+  //     examId: response.data.id,
+  //     totalSets: response.data.exam_set,
+  //     subjects: response.data.subjects
+  //   });
+  // };
+  const openAnswerKey = () => {
+    // console.log("CLICKED ANSWER KEY");
+    // console.log("DATA:", examData);
 
-//   navigation.navigate("AnswerKey", {
-//     examId: response.data.id,
-//     totalSets: response.data.exam_set,
-//     subjects: response.data.subjects
-//   });
-// };
-const openAnswerKey = () => {
-  // console.log("CLICKED ANSWER KEY");
-  // console.log("DATA:", examData);
+    navigation.navigate("AnswerKey", {
+      examId: examData.id,
+      totalSets: examData.exam_set,
+      subjects: examData.subjects || [],
+    });
+  };
 
-  navigation.navigate("AnswerKey", {
-    examId: examData.id,
-    totalSets: examData.exam_set,
-    subjects: examData.subjects || []
-  });
+  const downloadOMR = async () => {
+  try {
+    const response = await generateOMR(examData.id);
+
+    const fileUri = FileSystem.documentDirectory + "OMR.pdf";
+
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      const base64 = reader.result.split(",")[1];
+
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      await Sharing.shareAsync(fileUri);
+    };
+
+    reader.readAsDataURL(response.data);
+  } catch (error) {
+    console.log("Download error:", error);
+  }
 };
-
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Exams Details</Text>
@@ -114,7 +139,7 @@ const openAnswerKey = () => {
       </View>
 
       {/* Generate Button */}
-      <TouchableOpacity style={styles.generateBtn}>
+      <TouchableOpacity style={styles.generateBtn} onPress={downloadOMR}>
         <Text style={styles.generateText}>Generate OMR Sheet</Text>
       </TouchableOpacity>
 
@@ -130,7 +155,7 @@ const openAnswerKey = () => {
             // navigation.navigate("AnswerKey", {
             //   subjects: examData.subjects || [],
             //   totalSets: 2,
-            //   examId: examData.id, 
+            //   examId: examData.id,
             // })
             openAnswerKey()
           }
