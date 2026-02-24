@@ -102,6 +102,12 @@ const AddExam = ({navigation}) => {
       const month = ("0" + (examDate.getMonth() + 1)).slice(-2);
       const day = ("0" + examDate.getDate()).slice(-2);
 
+//   dummy classes for dropdown
+const classOptions = [
+  { label: "FY BCA", value: "fybca" },
+  { label: "SY BCA", value: "sybca" },  
+  { label: "TY BCA", value: "tybca" }
+]
       const formattedDate = year + "-" + month + "-" + day;
 
       const examPayload = {
