@@ -1,24 +1,43 @@
+"""
+OMR V2 - Corrected Version
+FastAPI + OpenCV
+Uses AnswerKey table properly
+"""
+
 import cv2
 import numpy as np
-from fastapi import APIRouter, UploadFile, File, Form, Depends
-from fastapi.responses import JSONResponse
+from typing import List
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.db.session import get_db
-from app.models.answer_key import AnswerKey
-from app.models.result import Result
 from app.models.exam import Exam
-import re
+from app.models.answer_key import AnswerKey
+
 router = APIRouter()
 
+# ==============================
+# CONFIG
+# ==============================
+FILL_THRESHOLD = 0.20
+FILL_MARGIN = 0.03
+MIN_AREA = 150
+MAX_AREA = 5000
+ROW_TOL = 20
 
-# =============================
-# Detect Answers (FIXED VERSION)
-# =============================
-def detect_answers(image, max_questions):
 
-    height, width = image.shape[:2]
+# ==============================
+# OMR PROCESSING
+# ==============================
+def process_sheet(image_bytes: bytes, total_questions: int):
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    npimg = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+
+    if img is None:
+        raise ValueError("Invalid image")
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
     thresh = cv2.adaptiveThreshold(
@@ -27,169 +46,254 @@ def detect_answers(image, max_questions):
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY_INV,
         25,
-        10,
+        8,
     )
 
-    detected_answers = {}
-    question_index = 1
+    contours, _ = cv2.findContours(
+        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
 
-    # ====== Dynamic Layout Based On Image Size ======
-    start_y = int(height * 0.55)
-    row_spacing = int(height * 0.035)
+    bubbles = []
 
-    bubble_area_width = int(width * 0.35)
-    bubble_start_x = int(width * 0.25)
+    for c in contours:
+        area = cv2.contourArea(c)
+        if area < MIN_AREA or area > MAX_AREA:
+            continue
 
-    option_spacing = int(bubble_area_width / 4)
+        (x, y, w, h) = cv2.boundingRect(c)
+        aspect_ratio = w / float(h)
 
-    bubble_size = int(width * 0.03)
+        if 0.7 <= aspect_ratio <= 1.3:
 
-    # ================================================
+            mask = np.zeros(thresh.shape, dtype="uint8")
+            cv2.drawContours(mask, [c], -1, 255, -1)
 
-    for y in range(start_y, height - 50, row_spacing):
+            total = cv2.countNonZero(mask)
+            filled = cv2.countNonZero(
+                cv2.bitwise_and(thresh, thresh, mask=mask)
+            )
 
-        if question_index > max_questions:
-            break
+            fill_ratio = filled / float(total)
 
-        option_pixels = []
+            center_x = x + w // 2
+            center_y = y + h // 2
 
-        for option_index in range(4):
+            bubbles.append((center_x, center_y, fill_ratio))
 
-            x = bubble_start_x + option_index * option_spacing
+    if not bubbles:
+        print("⚠ NO BUBBLES DETECTED")
+        return {}
 
-            roi = thresh[
-                y:y + bubble_size,
-                x:x + bubble_size
-            ]
+    # Sort top to bottom
+    # bubbles = sorted(bubbles, key=lambda b: b[1])
 
-            if roi.shape[0] == 0 or roi.shape[1] == 0:
-                option_pixels.append(0)
+    # rows = []
+    # current_row = [bubbles[0]]
+
+    # for b in bubbles[1:]:
+    #     if abs(b[1] - current_row[0][1]) < ROW_TOL:
+    #         current_row.append(b)
+    #     else:
+    #         rows.append(current_row)
+    #         current_row = [b]
+
+    # rows.append(current_row)
+
+    # answers = {}
+    # question_number = 1
+
+    # for row in rows:
+
+    #     if question_number > total_questions:
+    #         break
+
+    #     if len(row) < 4:
+    #         continue
+
+    #     row = sorted(row, key=lambda b: b[0])
+    #     row = row[:4]
+
+    #     fills = [b[2] for b in row]
+
+    #     max_fill = max(fills)
+    #     sorted_fills = sorted(fills, reverse=True)
+
+    #     if (
+    #         max_fill > FILL_THRESHOLD
+    #         and (sorted_fills[0] - sorted_fills[1]) > FILL_MARGIN
+    #     ):
+    #         option_index = fills.index(max_fill)
+    #         answers[str(question_number)] = chr(65 + option_index)
+    #     else:
+    #         answers[str(question_number)] = "MULTI/EMPTY"
+
+    #     question_number += 1
+    # Sort by Y (top to bottom)
+    bubbles = sorted(bubbles, key=lambda b: b[1])
+    
+    # Split into left and right columns
+    image_width = img.shape[1]
+    mid_x = image_width // 2
+    
+    left_column = [b for b in bubbles if b[0] < mid_x]
+    right_column = [b for b in bubbles if b[0] >= mid_x]
+    
+    columns = [left_column, right_column]
+    
+    answers = {}
+    question_number = 1
+    
+    for column in columns:
+    
+        column = sorted(column, key=lambda b: b[1])
+    
+        rows = []
+        current_row = [column[0]]
+    
+        for b in column[1:]:
+            if abs(b[1] - current_row[0][1]) < ROW_TOL:
+                current_row.append(b)
+            else:
+                rows.append(current_row)
+                current_row = [b]
+    
+        rows.append(current_row)
+    
+        for row in rows:
+    
+            if len(row) < 4:
                 continue
+    
+            row = sorted(row, key=lambda b: b[0])
+            row = row[:4]
+    
+            fills = [b[2] for b in row]
+    
+            max_fill = max(fills)
+            sorted_fills = sorted(fills, reverse=True)
+    
+            if (
+                max_fill > FILL_THRESHOLD
+                and (sorted_fills[0] - sorted_fills[1]) > FILL_MARGIN
+            ):
+                option_index = fills.index(max_fill)
+                answers[str(question_number)] = chr(65 + option_index)
+            else:
+                answers[str(question_number)] = "MULTI/EMPTY"
+    
+            question_number += 1
 
-            pixels = cv2.countNonZero(roi)
-            option_pixels.append(pixels)
+    print("Detected answers:", answers)
 
-        max_pixel = max(option_pixels)
-        filled_option = option_pixels.index(max_pixel)
+    return answers
 
-        print("Q", question_index, "pixels:", option_pixels)
 
-        # Relative detection (better than fixed threshold)
-        sorted_pixels = sorted(option_pixels, reverse=True)
-
-        if sorted_pixels[0] > 40 and (sorted_pixels[0] - sorted_pixels[1]) > 20:
-            detected_answers[str(question_index)] = chr(65 + filled_option)
-
-        question_index += 1
-
-    return detected_answers, None, "Set 1"
-# =============================
-# API Endpoint
-# =============================
+# ==============================
+# FASTAPI ROUTE
+# ==============================
 @router.post("/scan-omr")
 async def scan_omr(
+    files: List[UploadFile] = File(...),
     exam_id: int = Form(...),
-    files: list[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
 
+    # 1️⃣ Validate exam
     exam = db.query(Exam).filter(Exam.id == exam_id).first()
     if not exam:
-        return JSONResponse(
-            status_code=404,
-            content={"status": "error", "message": "Exam not found"}
-        )
+        raise HTTPException(status_code=404, detail="Exam not found")
 
-    correct_answers = db.query(AnswerKey).filter(
+    # 2️⃣ Get answer key from AnswerKey table
+    answer_key_rows = db.query(AnswerKey).filter(
         AnswerKey.exam_id == exam_id
-    ).all()
+    ).order_by(AnswerKey.id).all()
 
-    if not correct_answers:
-        return JSONResponse(
-            status_code=404,
-            content={"status": "error", "message": "Answer key not found"}
-        )
+    if not answer_key_rows:
+        raise HTTPException(status_code=404, detail="Answer key not found")
 
-    # =============================
-    # Prepare answer map
-    # =============================
-    answer_map = {}
-    for row in correct_answers:
-        answer_map.setdefault(row.set_name, {})
-        # answer_map[row.set_name][str(row.question_key)] = row.correct_option
-        question_number = re.search(r'\d+', row.question_key)
-        if question_number:
-            clean_key = question_number.group()
-            answer_map[row.set_name][clean_key] = row.correct_option
+    # 🔥 Convert DB rows into numeric mapping (1,2,3...)
+    correct_answers = {
+        str(index): row.correct_option.strip().upper()
+        for index, row in enumerate(answer_key_rows, start=1)
+    }
 
-    detected_set = list(answer_map.keys())[0]
-    correct_set_answers = answer_map[detected_set]
-
-    max_questions = len(correct_set_answers)
+    total_questions = len(correct_answers)
 
     student_answers = {}
     question_offset = 0
-    roll_number = None
 
-    # =============================
-    # Process Each Page
-    # =============================
+    # 3️⃣ Process images
     for file in files:
+        contents = await file.read()
 
-        content = await file.read()
-        if not content:
-            continue
+        extracted = process_sheet(
+            contents,
+            total_questions=total_questions
+        )
 
-        nparr = np.frombuffer(content, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        if image is None:
-            continue
-
-        detected, roll, set_name = detect_answers(image, max_questions)
-
-        for q, ans in detected.items():
-            new_q = str(int(q) + question_offset)
+        for q_no, ans in extracted.items():
+            new_q = str(int(q_no) + question_offset)
             student_answers[new_q] = ans
 
-        question_offset += len(detected) if detected else 0
+        question_offset += len(extracted)
 
-    # =============================
-    # Calculate Score
-    # =============================
-    score = 0
+    # Normalize
+    student_answers = {
+        str(k): str(v).strip().upper()
+        for k, v in student_answers.items()
+    }
 
-    for q in correct_set_answers:
-        if student_answers.get(q) == correct_set_answers.get(q):
-            score += 1
+    # 4️⃣ Compare
+    correct_count = 0
+    wrong_questions = []
+    unanswered_questions = []
+    detailed_results = {}
 
-    print("===== STUDENT ANSWERS =====")
-    print(student_answers)
+    for q_no, correct_ans in correct_answers.items():
 
-    print("===== CORRECT ANSWERS =====")
-    print(correct_set_answers)
+        student_ans = student_answers.get(q_no)
 
-    print("===== SCORE =====")
-    print(score)
+        if not student_ans or student_ans == "MULTI/EMPTY":
+            unanswered_questions.append(q_no)
+            detailed_results[q_no] = {
+                "student": None,
+                "correct": correct_ans,
+                "result": "unanswered",
+            }
+            continue
 
-    result = Result(
-        exam_id=exam_id,
-        class_id=exam.class_id,
-        roll_number=roll_number or "UNKNOWN",
-        score=score,
-        total_questions=max_questions,
-    )
+        if student_ans == correct_ans:
+            correct_count += 1
+            detailed_results[q_no] = {
+                "student": student_ans,
+                "correct": correct_ans,
+                "result": "correct",
+            }
+        else:
+            wrong_questions.append(q_no)
+            detailed_results[q_no] = {
+                "student": student_ans,
+                "correct": correct_ans,
+                "result": "wrong",
+            }
 
-    db.add(result)
-    db.commit()
+    total = len(correct_answers)
+    percentage = round((correct_count / total) * 100, 2) if total else 0
+
+    print("\n===== FINAL DEBUG =====")
+    print("Student:", student_answers)
+    print("Correct:", correct_answers)
+    print("Score:", correct_count, "/", total)
+    print("=======================\n")
 
     return {
         "status": "success",
         "data": {
-            "score": score,
-            "total": max_questions,
-            "roll_number": roll_number or "UNKNOWN",
-            "set": detected_set,
-            "extracted_answers": student_answers
-        }
+            "score": correct_count,
+            "total": total,
+            "percentage": percentage,
+            "wrong_questions": wrong_questions,
+            "unanswered_questions": unanswered_questions,
+            "detailed_results": detailed_results,
+        },
     }

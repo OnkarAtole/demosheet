@@ -27,6 +27,8 @@ import ExamsScreen from "../screens/Tabs/Exams/ExamsScreen";
 import ExamDetails from "../screens/Tabs/Exams/ExamDetails";
 import AnswerKey from "../screens/Tabs/Exams/AnswerKey";
 import AddExam from "../screens/Tabs/Exams/AddExam";
+import OMRScanner from "../screens/Tabs/Exams/ScanSheet";
+
 const Stack = createNativeStackNavigator();
 
 export default function ExamsStack() {
@@ -36,6 +38,7 @@ export default function ExamsStack() {
       <Stack.Screen name="ExamDetails" component={ExamDetails} />
       <Stack.Screen name="AnswerKey" component={AnswerKey} />
       <Stack.Screen name="AddExam" component={AddExam} />
+      <Stack.Screen name="OMRScanner" component={OMRScanner} />
     </Stack.Navigator>
   );
 }

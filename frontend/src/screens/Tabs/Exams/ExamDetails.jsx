@@ -61,28 +61,28 @@ export default function ExamDetails({ route, navigation }) {
   };
 
   const downloadOMR = async () => {
-  try {
-    const response = await generateOMR(examData.id);
+    try {
+      const response = await generateOMR(examData.id);
 
-    const fileUri = FileSystem.documentDirectory + "OMR.pdf";
+      const fileUri = FileSystem.documentDirectory + "OMR.pdf";
 
-    const reader = new FileReader();
+      const reader = new FileReader();
 
-    reader.onload = async () => {
-      const base64 = reader.result.split(",")[1];
+      reader.onload = async () => {
+        const base64 = reader.result.split(",")[1];
 
-      await FileSystem.writeAsStringAsync(fileUri, base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
 
-      await Sharing.shareAsync(fileUri);
-    };
+        await Sharing.shareAsync(fileUri);
+      };
 
-    reader.readAsDataURL(response.data);
-  } catch (error) {
-    console.log("Download error:", error);
-  }
-};
+      reader.readAsDataURL(response.data);
+    } catch (error) {
+      console.log("Download error:", error);
+    }
+  };
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Exams Details</Text>
@@ -164,7 +164,18 @@ export default function ExamDetails({ route, navigation }) {
           <Text style={styles.optionText}>Answer Key</Text>
         </TouchableOpacity>
 
-        {renderOption("Scan Sheet")}
+        <TouchableOpacity
+          style={styles.optionBox}
+          onPress={() =>
+            navigation.navigate("OMRScanner", {
+              examId: examData.id,
+              totalPages: examData.total_pages || 1, // adjust based on backend
+            })
+          }
+        >
+          <View style={styles.circle} />
+          <Text style={styles.optionText}>Scan Sheet</Text>
+        </TouchableOpacity>
         {renderOption("Download Excel")}
         {renderOption("Analysis")}
       </View>
