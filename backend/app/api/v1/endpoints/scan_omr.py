@@ -19,16 +19,170 @@ router = APIRouter()
 # ==============================
 # CONFIG
 # ==============================
-FILL_THRESHOLD = 0.20
-FILL_MARGIN = 0.03
+FILL_THRESHOLD = 0.12
+FILL_MARGIN = 0.02
 MIN_AREA = 150
 MAX_AREA = 5000
-ROW_TOL = 20
+ROW_TOL = 90
 
 
 # ==============================
 # OMR PROCESSING
 # ==============================
+
+
+# extra function to process each sheet image and extract answers
+# def warp_omr_sheet(image):
+
+#     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+#     edged = cv2.Canny(blur, 50, 150)
+
+#     contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+#     if not contours:
+#         return image
+
+#     # page = max(contours, key=cv2.contourArea)
+#     contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+#     page = None
+
+#     for c in contours:
+#         peri = cv2.arcLength(c, True)
+#         approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+
+#         if len(approx) == 4:
+#             page = approx
+#             break
+
+#     if page is None:
+#         return image
+
+#     # peri = cv2.arcLength(page, True)
+#     # approx = cv2.approxPolyDP(page, 0.02 * peri, True)
+
+#     # if len(approx) != 4:
+#     #     return image
+
+#     # pts = approx.reshape(4, 2)
+#     pts = page.reshape(4, 2)
+#     rect = np.zeros((4, 2), dtype="float32")
+
+#     s = pts.sum(axis=1)
+#     rect[0] = pts[np.argmin(s)]
+#     rect[2] = pts[np.argmax(s)]
+
+#     diff = np.diff(pts, axis=1)
+#     rect[1] = pts[np.argmin(diff)]
+#     rect[3] = pts[np.argmax(diff)]
+
+#     (tl, tr, br, bl) = rect
+
+#     widthA = np.linalg.norm(br - bl)
+#     widthB = np.linalg.norm(tr - tl)
+#     maxWidth = int(max(widthA, widthB))
+
+#     heightA = np.linalg.norm(tr - br)
+#     heightB = np.linalg.norm(tl - bl)
+#     maxHeight = int(max(heightA, heightB))
+
+#     dst = np.array([
+#         [0, 0],
+#         [maxWidth - 1, 0],
+#         [maxWidth - 1, maxHeight - 1],
+#         [0, maxHeight - 1]
+#     ], dtype="float32")
+
+#     M = cv2.getPerspectiveTransform(rect, dst)
+#     warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+
+#     return warped
+
+def warp_omr_sheet(image):
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    edged = cv2.Canny(blur, 50, 150)
+
+    contours, _ = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if not contours:
+        return image
+
+    # contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    # page = None
+
+    # for c in contours:
+    #     peri = cv2.arcLength(c, True)
+    #     approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+
+    #     if len(approx) == 4:
+    #         page = approx
+    #         break
+
+    # if page is None:
+    #     return image
+
+    h, w = image.shape[:2]
+    image_area = h * w
+
+    page = None
+
+    for c in contours:
+        area = cv2.contourArea(c)
+
+        print("Contour area:", area)  #dummy print to debug contour areas
+        # keep only large contours (page candidates)
+        if area < image_area * 0.4:
+            continue
+
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+
+        if len(approx) == 4:
+            page = approx
+            break
+
+    if page is None:
+        return image
+
+    pts = page.reshape(4, 2)
+
+    rect = np.zeros((4, 2), dtype="float32")
+
+    s = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+
+    diff = np.diff(pts, axis=1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+
+    (tl, tr, br, bl) = rect
+
+    widthA = np.linalg.norm(br - bl)
+    widthB = np.linalg.norm(tr - tl)
+    maxWidth = int(max(widthA, widthB))
+
+    heightA = np.linalg.norm(tr - br)
+    heightB = np.linalg.norm(tl - bl)
+    maxHeight = int(max(heightA, heightB))
+
+    dst = np.array([
+        [0, 0],
+        [maxWidth - 1, 0],
+        [maxWidth - 1, maxHeight - 1],
+        [0, maxHeight - 1]
+    ], dtype="float32")
+
+    M = cv2.getPerspectiveTransform(rect, dst)
+    warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+
+    return warped
 def process_sheet(image_bytes: bytes, total_questions: int):
 
     npimg = np.frombuffer(image_bytes, np.uint8)
@@ -36,6 +190,10 @@ def process_sheet(image_bytes: bytes, total_questions: int):
 
     if img is None:
         raise ValueError("Invalid image")
+
+    img = warp_omr_sheet(img)
+    # temp debug
+    cv2.imwrite("debug_warp.jpg", img)
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -48,7 +206,7 @@ def process_sheet(image_bytes: bytes, total_questions: int):
         25,
         8,
     )
-
+    cv2.imwrite("debug_thresh.jpg", thresh)
     contours, _ = cv2.findContours(
         thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
@@ -86,7 +244,8 @@ def process_sheet(image_bytes: bytes, total_questions: int):
 
     # Sort top to bottom
     # bubbles = sorted(bubbles, key=lambda b: b[1])
-
+    # if len(bubbles) == 0:
+    #     return {}
     # rows = []
     # current_row = [bubbles[0]]
 
@@ -98,90 +257,81 @@ def process_sheet(image_bytes: bytes, total_questions: int):
     #         current_row = [b]
 
     # rows.append(current_row)
+    # -------- COLUMN SPLIT --------
+    bubbles = sorted(bubbles, key=lambda b: b[0])
 
-    # answers = {}
-    # question_number = 1
+    columns = []
+    current_col = [bubbles[0]]
 
-    # for row in rows:
+    COL_TOL = 120
 
-    #     if question_number > total_questions:
-    #         break
+    for b in bubbles[1:]:
+        if abs(b[0] - current_col[0][0]) < COL_TOL:
+            current_col.append(b)
+        else:
+            columns.append(current_col)
+            current_col = [b]
 
-    #     if len(row) < 4:
-    #         continue
+    columns.append(current_col)
 
-    #     row = sorted(row, key=lambda b: b[0])
-    #     row = row[:4]
+    rows = []
 
-    #     fills = [b[2] for b in row]
+    for col in columns:
+        col = sorted(col, key=lambda b: b[1])
 
-    #     max_fill = max(fills)
-    #     sorted_fills = sorted(fills, reverse=True)
+        current_row = [col[0]]
 
-    #     if (
-    #         max_fill > FILL_THRESHOLD
-    #         and (sorted_fills[0] - sorted_fills[1]) > FILL_MARGIN
-    #     ):
-    #         option_index = fills.index(max_fill)
-    #         answers[str(question_number)] = chr(65 + option_index)
-    #     else:
-    #         answers[str(question_number)] = "MULTI/EMPTY"
-
-    #     question_number += 1
-    # Sort by Y (top to bottom)
-    bubbles = sorted(bubbles, key=lambda b: b[1])
-    
-    # Split into left and right columns
-    image_width = img.shape[1]
-    mid_x = image_width // 2
-    
-    left_column = [b for b in bubbles if b[0] < mid_x]
-    right_column = [b for b in bubbles if b[0] >= mid_x]
-    
-    columns = [left_column, right_column]
-    
-    answers = {}
-    question_number = 1
-    
-    for column in columns:
-    
-        column = sorted(column, key=lambda b: b[1])
-    
-        rows = []
-        current_row = [column[0]]
-    
-        for b in column[1:]:
+        for b in col[1:]:
             if abs(b[1] - current_row[0][1]) < ROW_TOL:
                 current_row.append(b)
             else:
                 rows.append(current_row)
                 current_row = [b]
-    
+
         rows.append(current_row)
-    
-        for row in rows:
-    
-            if len(row) < 4:
-                continue
-    
-            row = sorted(row, key=lambda b: b[0])
-            row = row[:4]
-    
-            fills = [b[2] for b in row]
-    
-            max_fill = max(fills)
-            sorted_fills = sorted(fills, reverse=True)
-    
-            if (
-                max_fill > FILL_THRESHOLD
-                and (sorted_fills[0] - sorted_fills[1]) > FILL_MARGIN
-            ):
-                option_index = fills.index(max_fill)
-                answers[str(question_number)] = chr(65 + option_index)
-            else:
-                answers[str(question_number)] = "MULTI/EMPTY"
-    
+
+    answers = {}
+    question_number = 1
+
+    for row in rows:
+
+        if question_number > total_questions:
+            break
+
+        if len(row) < 4:
+            continue
+
+        # row = sorted(row, key=lambda b: b[0])
+        # row = row[:4]
+        row = sorted(row, key=lambda b: b[0])
+
+        # take 4 most circular bubbles
+        # row = sorted(row, key=lambda b: b[2], reverse=True)[:4]
+        row = sorted(row, key=lambda b: b[0])
+
+        # restore left→right order
+        row = sorted(row, key=lambda b: b[0])
+        fills = [b[2] for b in row]
+        max_fill = max(fills)
+        sorted_fills = sorted(fills, reverse=True)
+        # fills = [b[2] for b in row]
+        if max(fills) < 0.08:
+            answers[str(question_number)] = "MULTI/EMPTY"
             question_number += 1
+            continue
+
+        
+
+        if (
+            max_fill > FILL_THRESHOLD
+            and (sorted_fills[0] - sorted_fills[1]) > FILL_MARGIN
+        ):
+            option_index = fills.index(max_fill)
+            answers[str(question_number)] = chr(65 + option_index)
+        else:
+            answers[str(question_number)] = "MULTI/EMPTY"
+
+        question_number += 1
 
     print("Detected answers:", answers)
 
@@ -200,21 +350,43 @@ async def scan_omr(
 
     # 1️⃣ Validate exam
     exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    # print("Exam query result:", exam)
+    print("========== DEBUG SCAN ==========")
+    print("Incoming exam_id:", exam_id)
+
+    all_keys = db.query(AnswerKey).all()
+    print("All exam_ids in answer_keys:", [k.exam_id for k in all_keys])
+
+    # answer_key_rows = db.query(AnswerKey).filter(
+    #     AnswerKey.exam_id == exam_id
+    # ).all()
+    # answer_key_rows = sorted(answer_key_rows, key=lambda x: x.id)
+  
+    print("================================")
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
     # 2️⃣ Get answer key from AnswerKey table
     answer_key_rows = db.query(AnswerKey).filter(
-        AnswerKey.exam_id == exam_id
+    AnswerKey.exam_id == exam_id
     ).order_by(AnswerKey.id).all()
 
     if not answer_key_rows:
         raise HTTPException(status_code=404, detail="Answer key not found")
 
     # 🔥 Convert DB rows into numeric mapping (1,2,3...)
+    # correct_answers = {
+    #     str(index): row.correct_option.strip().upper()
+    #     for index, row in enumerate(answer_key_rows, start=1)
+    # }
+    answer_key_rows = sorted(
+    answer_key_rows,
+    key=lambda x: int(x.question_key.split("-")[-1])
+    )
+
     correct_answers = {
-        str(index): row.correct_option.strip().upper()
-        for index, row in enumerate(answer_key_rows, start=1)
+        str(i + 1): row.correct_option.strip().upper()
+        for i, row in enumerate(answer_key_rows)
     }
 
     total_questions = len(correct_answers)

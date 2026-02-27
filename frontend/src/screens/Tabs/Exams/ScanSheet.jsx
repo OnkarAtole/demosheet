@@ -17,7 +17,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 
 const { width: SW } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.1.11:8000";
+const API_BASE_URL = "http://192.168.1.9:8000";
 
 // ─────────────────────────────────────────────
 // MAIN SCREEN — Camera + Capture + Evaluate
@@ -134,7 +134,15 @@ export default function OMRScanner({ route, navigation }) {
       setResult(json.data);
     } catch (error) {
       console.error("Fetch error:", error);
-      Alert.alert("Connection Error", `Could not reach server.\n${API_BASE_URL}`);
+      // Alert.alert("Connection Error", `Could not reach server.\n${API_BASE_URL}`);
+      const errorMsg =
+      typeof json.detail === "string"
+        ? json.detail
+        : Array.isArray(json.detail)
+        ? json.detail.map(e => e.msg).join("\n")
+        : json.message || "Server error";
+
+Alert.alert("Evaluation Failed", errorMsg);
     } finally {
       setLoading(false);
     }
