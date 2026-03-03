@@ -15,9 +15,9 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
-
+import { scanOMR } from "../../../services/omrService";
 const { width: SW } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.1.11:8000";
+
 
 // ─────────────────────────────────────────────
 // MAIN SCREEN — Camera + Capture + Evaluate
@@ -96,49 +96,48 @@ export default function OMRScanner({ route, navigation }) {
 
   // ── Evaluate ─────────────────────────────────
   const evaluateSheet = async () => {
-    if (loading) return;
-    if (images.length !== Number(totalPages)) {
+  if (loading) return;
+
+  if (images.length !== Number(totalPages)) {
+    Alert.alert(
+      "Incomplete",
+      `Please capture all ${totalPages} page(s).\n\nCaptured: ${images.length}/${totalPages}`
+    );
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const result = await scanOMR(examId, images);
+
+    if (result.status !== "success") {
       Alert.alert(
-        "Incomplete",
-        `Please capture all ${totalPages} page(s) before evaluating.\n\nCaptured: ${images.length}/${totalPages}`
+        "Evaluation Failed",
+        result.detail || result.message || "Server error"
       );
       return;
     }
 
-    try {
-      setLoading(true);
+    setResult(result.data);
 
-      const formData = new FormData();
-      images.forEach((img, idx) => {
-        formData.append("files", {
-          uri: img.uri,
-          name: `omr_page_${idx + 1}.jpg`,
-          type: "image/jpeg",
-        });
-      });
-      formData.append("exam_id", String(examId));
+  }  catch (error) {
+  console.log("====== OMR ERROR DEBUG ======");
+  console.log("Full Error:", error);
+  console.log("Error Message:", error.message);
+  console.log("Error Response:", error.response);
+  console.log("Error Data:", error.response?.data);
+  console.log("Error Status:", error.response?.status);
+  console.log("=============================");
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/omr/scan-omr`, {
-        method: "POST",
-        body: formData,
-        headers: { Accept: "application/json" },
-      });
-
-      const json = await response.json();
-
-      if (!response.ok || json.status !== "success") {
-        Alert.alert("Evaluation Failed", json.detail || json.message || "Server error");
-        return;
-      }
-
-      setResult(json.data);
-    } catch (error) {
-      console.error("Fetch error:", error);
-      Alert.alert("Connection Error", `Could not reach server.\n${API_BASE_URL}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  Alert.alert(
+    "Connection Error",
+    error.response?.data?.detail || error.message || "Server not reachable"
+  );
+} finally {
+    setLoading(false);
+  }
+};
 
   // ── Retake last photo ─────────────────────────
   const retakeLast = () => setImages((prev) => prev.slice(0, -1));

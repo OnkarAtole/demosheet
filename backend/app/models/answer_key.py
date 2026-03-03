@@ -10,7 +10,7 @@ class AnswerKey(Base):
     set_name = Column(String, nullable=False)   # Example: "Set 1"
     question_key = Column(String, nullable=False)  # Example: "Math-1"
     correct_option = Column(String(1), nullable=False)  # A/B/C/D
-
+   
     # 🔥 Prevent duplicate answer for same question in same set
     __table_args__ = (
         UniqueConstraint("exam_id", "set_name", "question_key"),
