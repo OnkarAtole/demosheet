@@ -1,3 +1,4 @@
+
 import cv2
 import numpy as np
 import traceback
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.answer_key import AnswerKey
+from app.models.result import Result
 
 router = APIRouter()
 
@@ -20,35 +22,40 @@ OMR_LAYOUT = [
     {"start": 65, "count": 36, "roi": (0.55, 0.75), "y_start": 0.14},
 ]
 
-FILL_THRESHOLD = 0.50
-MIN_MARKER_AREA = 600
+FILL_THRESHOLD = 0.48
+MIN_MARKER_AREA = 800
 
 
 # ==============================
-# HELPER
+# GROUP INTO ROWS
 # ==============================
 
-def group_into_rows(b_list: List[Dict]) -> List[List[Dict]]:
-    if not b_list:
+def group_into_rows(bubbles):
+
+    if not bubbles:
         return []
 
-    b_list.sort(key=lambda b: b["y"])
-    median_h = np.median([b["h"] for b in b_list])
-    y_tol = median_h * 0.75
+    bubbles = sorted(bubbles, key=lambda b: b["y"])
 
     rows = []
-    current = [b_list[0]]
+    current = [bubbles[0]]
 
-    for b in b_list[1:]:
+    y_tol = 12
+
+    for b in bubbles[1:]:
+
         if abs(b["y"] - current[0]["y"]) < y_tol:
             current.append(b)
+
         else:
-            current.sort(key=lambda x: x["x"])
             rows.append(current)
             current = [b]
 
-    current.sort(key=lambda x: x["x"])
     rows.append(current)
+
+    for r in rows:
+        r.sort(key=lambda b: b["x"])
+
     return rows
 
 
@@ -56,245 +63,194 @@ def group_into_rows(b_list: List[Dict]) -> List[List[Dict]]:
 # PROCESS SHEET
 # ==============================
 
-def process_sheet(image_bytes: bytes, page_offset: int = 0) -> Dict[str, Any]:
+def process_sheet(image_bytes: bytes, page_offset: int = 0):
 
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
     if img is None:
         return {}
 
-    # 1️⃣ Perspective correction
+    # ------------------------------
+    # Perspective correction
+    # ------------------------------
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (7, 7), 0)
+    blur = cv2.GaussianBlur(gray,(7,7),0)
 
     thresh_marker = cv2.adaptiveThreshold(
-        blur, 255,
+        blur,255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY_INV,
-        51, 10
+        51,10
     )
 
-    contours, _ = cv2.findContours(thresh_marker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours,_ = cv2.findContours(thresh_marker,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
 
-    markers = []
+    markers=[]
+
     for c in contours:
+
         if cv2.contourArea(c) > MIN_MARKER_AREA:
-            x, y, w, h = cv2.boundingRect(c)
-            ar = w / float(h)
-            if 0.8 < ar < 1.2:
-                markers.append((x + w // 2, y + h // 2))
+
+            x,y,w,h=cv2.boundingRect(c)
+
+            if 0.8 < (w/float(h)) < 1.2:
+                markers.append((x+w//2,y+h//2))
+
+    warped = img
 
     if len(markers) >= 4:
-        markers = np.array(markers, dtype="float32")
-        rect = np.zeros((4, 2), dtype="float32")
 
-        s = markers.sum(axis=1)
-        diff = np.diff(markers, axis=1)
+        markers=np.array(markers,dtype="float32")
 
-        rect[0] = markers[np.argmin(s)]
-        rect[2] = markers[np.argmax(s)]
-        rect[1] = markers[np.argmin(diff)]
-        rect[3] = markers[np.argmax(diff)]
+        rect=np.zeros((4,2),dtype="float32")
 
-        (tl, tr, br, bl) = rect
+        s=markers.sum(axis=1)
+        diff=np.diff(markers,axis=1)
 
-        maxWidth = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
-        maxHeight = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))
+        rect[0]=markers[np.argmin(s)]
+        rect[2]=markers[np.argmax(s)]
+        rect[1]=markers[np.argmin(diff)]
+        rect[3]=markers[np.argmax(diff)]
 
-        dst = np.array([
-            [0, 0],
-            [maxWidth - 1, 0],
-            [maxWidth - 1, maxHeight - 1],
-            [0, maxHeight - 1]
-        ], dtype="float32")
+        (tl,tr,br,bl)=rect
 
-        M = cv2.getPerspectiveTransform(rect, dst)
-        warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
-    else:
-        warped = img
+        widthA=np.linalg.norm(br-bl)
+        widthB=np.linalg.norm(tr-tl)
 
-    # 2️⃣ Threshold
-    w_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    w_blur = cv2.GaussianBlur(w_gray, (3, 3), 0)
+        heightA=np.linalg.norm(tr-br)
+        heightB=np.linalg.norm(tl-bl)
 
-    w_thresh = cv2.adaptiveThreshold(
-        w_blur, 255,
+        maxWidth=int(max(widthA,widthB))
+        maxHeight=int(max(heightA,heightB))
+
+        dst=np.array([
+            [0,0],
+            [maxWidth-1,0],
+            [maxWidth-1,maxHeight-1],
+            [0,maxHeight-1]
+        ],dtype="float32")
+
+        M=cv2.getPerspectiveTransform(rect,dst)
+
+        warped=cv2.warpPerspective(img,M,(maxWidth,maxHeight))
+
+    debug_img = warped.copy()
+
+    # ------------------------------
+    # Bubble detection
+    # ------------------------------
+
+    gray=cv2.cvtColor(warped,cv2.COLOR_BGR2GRAY)
+    blur=cv2.GaussianBlur(gray,(3,3),0)
+
+    thresh=cv2.adaptiveThreshold(
+        blur,255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY_INV,
-        31, 7
+        31,7
     )
 
-    contours, _ = cv2.findContours(w_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours,_=cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
 
-    bubbles = []
-    h_img, w_img = warped.shape[:2]
+    bubbles=[]
 
-    # 3️⃣ Bubble detection
+    h_img,w_img=warped.shape[:2]
+
     for c in contours:
-        area = cv2.contourArea(c)
-        if 200 < area < 1800:
-            (xc, yc), radius = cv2.minEnclosingCircle(c)
-            inner_radius = int(radius * 0.40)
 
-            mask = np.zeros(w_thresh.shape, dtype="uint8")
-            cv2.circle(mask, (int(xc), int(yc)), inner_radius, 255, -1)
+        area=cv2.contourArea(c)
+        perimeter=cv2.arcLength(c,True)
 
-            filled = cv2.countNonZero(cv2.bitwise_and(w_thresh, w_thresh, mask=mask))
-            total = cv2.countNonZero(mask)
+        if perimeter==0:
+            continue
 
-            fill_ratio = filled / float(total) if total > 0 else 0
+        circularity = 4*np.pi*area/(perimeter*perimeter)
+
+        if 350 < area < 900 and circularity > 0.7:
+
+            (xc,yc),radius=cv2.minEnclosingCircle(c)
+
+            inner=int(radius*0.65)
+
+            mask=np.zeros(thresh.shape,dtype="uint8")
+
+            cv2.circle(mask,(int(xc),int(yc)),inner,255,-1)
+
+            filled=cv2.countNonZero(cv2.bitwise_and(thresh,thresh,mask=mask))
+            total=cv2.countNonZero(mask)
+
+            ratio=filled/float(total) if total>0 else 0
 
             bubbles.append({
-                "x": int(xc),
-                "y": int(yc),
-                "f": fill_ratio,
-                "h": int(radius * 2)
+                "x":int(xc),
+                "y":int(yc),
+                "f":ratio,
+                "h":int(radius*2)
             })
 
-    results = {}
+            cv2.circle(debug_img,(int(xc),int(yc)),int(radius),(255,0,0),2)
 
     # ==============================
-    # QUESTION EXTRACTION
+    # ANSWER DETECTION
     # ==============================
+
+    results={}
 
     for col in OMR_LAYOUT:
 
         y_threshold = h_img * col["y_start"]
 
-        col_bubbles = [
+        col_bubbles=[
             b for b in bubbles
-            if col["roi"][0] * w_img <= b["x"] <= col["roi"][1] * w_img
+            if col["roi"][0]*w_img <= b["x"] <= col["roi"][1]*w_img
             and b["y"] > y_threshold
         ]
 
-        rows = group_into_rows(col_bubbles)
-        rows = sorted(rows, key=lambda r: np.mean([b["y"] for b in r]))
+        rows=group_into_rows(col_bubbles)
 
-        if len(rows) < 3:
-            continue
+        rows=sorted(rows,key=lambda r:np.mean([b["y"] for b in r]))
 
-        centers = [np.mean([b["y"] for b in r]) for r in rows]
-        min_y = min(centers)
-        max_y = max(centers)
-        expected_gap = (max_y - min_y) / (col["count"] - 1)
-
-        slots = [None] * col["count"]
-
-        for row, center in zip(rows, centers):
-            index = int(round((center - min_y) / expected_gap))
-            if 0 <= index < col["count"]:
-                slots[index] = row
-
-        for i in range(col["count"]):
+        for i,row in enumerate(rows):
 
             q_num = col["start"] + i + page_offset
-            row = slots[i]
 
-            if row is None or len(row) < 4:
-                results[str(q_num)] = "EMPTY"
+            if len(row) < 4:
+                results[str(q_num)]="EMPTY"
                 continue
 
-            row = sorted(row[-4:], key=lambda b: b["x"])
-            ratios = [b["f"] for b in row]
-            sorted_idx = np.argsort(ratios)[::-1]
+            row=sorted(row,key=lambda b:b["x"])[:4]
 
-            top = ratios[sorted_idx[0]]
-            second = ratios[sorted_idx[1]]
+            ratios=[b["f"] for b in row]
 
-            if top > FILL_THRESHOLD and (top - second) > 0.12:
-                detected_answer = chr(65 + sorted_idx[0])
+            sorted_idx=np.argsort(ratios)[::-1]
+
+            top=ratios[sorted_idx[0]]
+            second=ratios[sorted_idx[1]]
+
+            print("Q",q_num,ratios)
+
+            if top > FILL_THRESHOLD and (top-second) > 0.12:
+                detected = chr(65+sorted_idx[0])
             else:
-                detected_answer = "EMPTY"
+                detected="EMPTY"
 
-            results[str(q_num)] = detected_answer
+            results[str(q_num)]=detected
 
-    # ==============================
-    # ROLL NUMBER (VERTICAL LOGIC)
-    # ==============================
+            for idx,b in enumerate(row):
 
-    roll_number = "EMPTY"
+                if idx==sorted_idx[0] and detected!="EMPTY":
+                    cv2.circle(debug_img,(b["x"],b["y"]),12,(0,255,0),3)
+                else:
+                    cv2.circle(debug_img,(b["x"],b["y"]),10,(0,0,255),2)
 
-    roll_area = [
-        b for b in bubbles
-        if 0.05 * w_img < b["x"] < 0.25 * w_img
-        and 0.18 * h_img < b["y"] < 0.50 * h_img
-    ]
-
-    if roll_area:
-
-        roll_area = sorted(roll_area, key=lambda b: b["x"])
-
-        digit_columns = []
-        current_col = [roll_area[0]]
-        x_tol = 20
-
-        for b in roll_area[1:]:
-            if abs(b["x"] - current_col[0]["x"]) < x_tol:
-                current_col.append(b)
-            else:
-                digit_columns.append(current_col)
-                current_col = [b]
-
-        digit_columns.append(current_col)
-
-        digits = []
-
-        for col in digit_columns:
-
-            col = sorted(col, key=lambda b: b["y"])
-
-            if len(col) < 8:
-                digits.append("?")
-                continue
-
-            y_positions = [b["y"] for b in col]
-            min_y = min(y_positions)
-            max_y = max(y_positions)
-            expected_gap = (max_y - min_y) / 9
-
-            slots = [None] * 10
-
-            for b in col:
-                index = int(round((b["y"] - min_y) / expected_gap))
-                if 0 <= index <= 9:
-                    slots[index] = b
-
-            digit_value = "?"
-
-            for idx, b in enumerate(slots):
-                if b and b["f"] > FILL_THRESHOLD:
-                    digit_value = str(idx)
-                    break
-
-            digits.append(digit_value)
-
-        if digits:
-            roll_number = "".join(digits)
-
-    # ==============================
-    # EXAM SET
-    # ==============================
-
-    exam_set = "EMPTY"
-
-    set_area = [
-        b for b in bubbles
-        if 0.05 * w_img < b["x"] < 0.25 * w_img
-        and b["y"] < 0.15 * h_img
-    ]
-
-    if set_area:
-        set_area = sorted(set_area, key=lambda b: b["x"])
-        ratios = [b["f"] for b in set_area]
-        max_idx = np.argmax(ratios)
-
-        if ratios[max_idx] > FILL_THRESHOLD:
-            exam_set = chr(65 + max_idx)
+    cv2.imwrite("omr_debug.png",debug_img)
 
     return {
-        "answers": results,
-        "roll_number": roll_number,
-        "exam_set": exam_set
+        "answers":results,
+        "roll_number":"DEBUG",
+        "exam_set":"DEBUG"
     }
 
 
@@ -308,73 +264,81 @@ async def scan_omr(
     exam_id: int = Form(...),
     db: Session = Depends(get_db),
 ):
+
     try:
+
         answer_key = db.query(AnswerKey).filter(
             AnswerKey.exam_id == exam_id
         ).order_by(AnswerKey.id).all()
 
-        correct_answers = {
-            str(i + 1): r.correct_option.strip().upper()
-            for i, r in enumerate(answer_key)
+        correct_answers={
+            str(i+1):r.correct_option.strip().upper()
+            for i,r in enumerate(answer_key)
         }
 
-        questions_per_page = sum(col["count"] for col in OMR_LAYOUT)
+        final_data={}
 
-        final_data = {}
-        roll_number = "EMPTY"
-        exam_set = "EMPTY"
+        for file in files:
 
-        for idx, file in enumerate(files):
-            page_offset = idx * questions_per_page
-            page_result = process_sheet(await file.read(), page_offset)
-            final_data.update(page_result.get("answers", {}))
+            page_result=process_sheet(await file.read())
 
-            if idx == 0:
-                roll_number = page_result.get("roll_number", "EMPTY")
-                exam_set = page_result.get("exam_set", "EMPTY")
+            final_data.update(page_result.get("answers",{}))
 
-        score = 0
-        wrong_questions = []
-        skipped_questions = []
-        detailed = {}
+        score=0
+        wrong=[]
+        skipped=[]
+        detailed={}
 
-        for q, correct in correct_answers.items():
+        for q,correct in correct_answers.items():
 
-            student = final_data.get(q, "EMPTY")
+            student=final_data.get(q,"EMPTY")
 
-            if student == correct:
-                score += 1
-                status = "correct"
-            elif student == "EMPTY":
-                status = "unanswered"
-                skipped_questions.append(q)
+            if student==correct:
+                score+=1
+                status="correct"
+
+            elif student=="EMPTY":
+                status="unanswered"
+                skipped.append(q)
+
             else:
-                status = "wrong"
-                wrong_questions.append(q)
+                status="wrong"
+                wrong.append(q)
 
-            detailed[q] = {
-                "student": student,
-                "correct": correct,
-                "result": status
+            detailed[q]={
+                "student":student,
+                "correct":correct,
+                "result":status
             }
 
+        percentage=round((score/len(correct_answers))*100,2)
+
+        print("FINAL SCORE:",score)
+
         return {
-            "status": "success",
-            "data": {
-                "roll_number": roll_number,
-                "exam_set": exam_set,
-                "score": score,
-                "total": len(correct_answers),
-                "percentage": round((score / len(correct_answers)) * 100, 2),
-                "wrong_questions": wrong_questions,
-                "unanswered_questions": skipped_questions,
-                "detailed_results": detailed
+            "status":"success",
+            "data":{
+                "roll_number":"DEBUG",
+                "exam_set":"DEBUG",
+                "score":score,
+                "total":len(correct_answers),
+                "percentage":percentage,
+                "wrong_questions":wrong,
+                "unanswered_questions":skipped,
+                "detailed_results":detailed
             }
         }
 
     except Exception as e:
+
         traceback.print_exc()
-        return {"status": "error", "message": str(e)}
+
+        return {"status":"error","message":str(e)}
+
+
+
+
+
 # import cv2
 # import numpy as np
 # import traceback
@@ -384,6 +348,7 @@ async def scan_omr(
 
 # from app.db.session import get_db
 # from app.models.answer_key import AnswerKey
+# from app.models.result import Result
 
 # router = APIRouter()
 
@@ -397,35 +362,40 @@ async def scan_omr(
 #     {"start": 65, "count": 36, "roi": (0.55, 0.75), "y_start": 0.14},
 # ]
 
-# FILL_THRESHOLD = 0.50
-# MIN_MARKER_AREA = 600
+# FILL_THRESHOLD = 0.48
+# MIN_MARKER_AREA = 800
 
 
 # # ==============================
 # # ROW GROUPING
 # # ==============================
 
-# def group_into_rows(b_list: List[Dict]) -> List[List[Dict]]:
-#     if not b_list:
+# def group_into_rows(bubbles):
+
+#     if not bubbles:
 #         return []
 
-#     b_list.sort(key=lambda b: b["y"])
-#     median_h = np.median([b["h"] for b in b_list])
-#     y_tol = median_h * 0.75
+#     bubbles = sorted(bubbles, key=lambda b: b["y"])
 
 #     rows = []
-#     current = [b_list[0]]
+#     current = [bubbles[0]]
 
-#     for b in b_list[1:]:
+#     y_tol = 12
+
+#     for b in bubbles[1:]:
+
 #         if abs(b["y"] - current[0]["y"]) < y_tol:
 #             current.append(b)
+
 #         else:
-#             current.sort(key=lambda x: x["x"])
 #             rows.append(current)
 #             current = [b]
 
-#     current.sort(key=lambda x: x["x"])
 #     rows.append(current)
+
+#     for r in rows:
+#         r.sort(key=lambda b: b["x"])
+
 #     return rows
 
 
@@ -437,177 +407,201 @@ async def scan_omr(
 
 #     nparr = np.frombuffer(image_bytes, np.uint8)
 #     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
 #     if img is None:
 #         return {}
 
-#     # ==============================
-#     # 1️⃣ Perspective Correction
-#     # ==============================
+#     # ------------------------------
+#     # perspective correction
+#     # ------------------------------
 
 #     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 #     blur = cv2.GaussianBlur(gray, (7, 7), 0)
 
-#     thresh_marker = cv2.adaptiveThreshold(
-#         blur, 255,
+#     thresh = cv2.adaptiveThreshold(
+#         blur,255,
 #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
 #         cv2.THRESH_BINARY_INV,
-#         51, 10
+#         51,10
 #     )
 
-#     contours, _ = cv2.findContours(thresh_marker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+#     contours,_ = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
 
-#     markers = []
+#     markers=[]
+
 #     for c in contours:
-#         area = cv2.contourArea(c)
-#         if area > MIN_MARKER_AREA:
-#             x, y, w, h = cv2.boundingRect(c)
-#             ar = w / float(h)
-#             if 0.8 < ar < 1.2:
-#                 markers.append((x + w // 2, y + h // 2))
 
-#     if len(markers) >= 4:
-#         markers = np.array(markers, dtype="float32")
-#         rect = np.zeros((4, 2), dtype="float32")
+#         if cv2.contourArea(c) > MIN_MARKER_AREA:
 
-#         s = markers.sum(axis=1)
-#         diff = np.diff(markers, axis=1)
+#             x,y,w,h=cv2.boundingRect(c)
 
-#         rect[0] = markers[np.argmin(s)]
-#         rect[2] = markers[np.argmax(s)]
-#         rect[1] = markers[np.argmin(diff)]
-#         rect[3] = markers[np.argmax(diff)]
+#             if 0.8 < (w/float(h)) < 1.2:
 
-#         (tl, tr, br, bl) = rect
+#                 markers.append((x+w//2,y+h//2))
 
-#         maxWidth = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
-#         maxHeight = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))
+#     warped=img
 
-#         dst = np.array([
-#             [0, 0],
-#             [maxWidth - 1, 0],
-#             [maxWidth - 1, maxHeight - 1],
-#             [0, maxHeight - 1]
-#         ], dtype="float32")
+#     if len(markers)>=4:
 
-#         M = cv2.getPerspectiveTransform(rect, dst)
-#         warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
-#     else:
-#         warped = img
+#         markers=np.array(markers,dtype="float32")
 
-#     # ==============================
-#     # 2️⃣ Adaptive Threshold (ONLY)
-#     # ==============================
+#         rect=np.zeros((4,2),dtype="float32")
 
-#     w_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-#     w_blur = cv2.GaussianBlur(w_gray, (3, 3), 0)
+#         s=markers.sum(axis=1)
+#         diff=np.diff(markers,axis=1)
 
-#     w_thresh = cv2.adaptiveThreshold(
-#         w_blur, 255,
+#         rect[0]=markers[np.argmin(s)]
+#         rect[2]=markers[np.argmax(s)]
+#         rect[1]=markers[np.argmin(diff)]
+#         rect[3]=markers[np.argmax(diff)]
+
+#         (tl,tr,br,bl)=rect
+
+#         widthA=np.linalg.norm(br-bl)
+#         widthB=np.linalg.norm(tr-tl)
+
+#         heightA=np.linalg.norm(tr-br)
+#         heightB=np.linalg.norm(tl-bl)
+
+#         maxWidth=int(max(widthA,widthB))
+#         maxHeight=int(max(heightA,heightB))
+
+#         dst=np.array([
+#             [0,0],
+#             [maxWidth-1,0],
+#             [maxWidth-1,maxHeight-1],
+#             [0,maxHeight-1]
+#         ],dtype="float32")
+
+#         M=cv2.getPerspectiveTransform(rect,dst)
+
+#         warped=cv2.warpPerspective(img,M,(maxWidth,maxHeight))
+
+#     debug_img = warped.copy()
+
+#     # ------------------------------
+#     # bubble detection
+#     # ------------------------------
+
+#     gray=cv2.cvtColor(warped,cv2.COLOR_BGR2GRAY)
+#     blur=cv2.GaussianBlur(gray,(3,3),0)
+
+#     thresh=cv2.adaptiveThreshold(
+#         blur,255,
 #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
 #         cv2.THRESH_BINARY_INV,
-#         31, 7
+#         31,7
 #     )
 
-#     contours, _ = cv2.findContours(w_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+#     contours,_=cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
 
-#     bubbles = []
-#     final_vis = warped.copy()
-#     h_img, w_img = warped.shape[:2]
+#     bubbles=[]
 
-#     # ==============================
-#     # 3️⃣ Bubble Detection (Inner Core Only)
-#     # ==============================
+#     h_img,w_img=warped.shape[:2]
 
 #     for c in contours:
-#         area = cv2.contourArea(c)
-#         if 200 < area < 1800:
 
-#             (xc, yc), radius = cv2.minEnclosingCircle(c)
-#             inner_radius = int(radius * 0.40)   # 🔥 key fix
+#         area=cv2.contourArea(c)
+#         perimeter=cv2.arcLength(c,True)
 
-#             mask = np.zeros(w_thresh.shape, dtype="uint8")
-#             cv2.circle(mask, (int(xc), int(yc)), inner_radius, 255, -1)
+#         if perimeter==0:
+#             continue
 
-#             filled = cv2.countNonZero(cv2.bitwise_and(w_thresh, w_thresh, mask=mask))
-#             total = cv2.countNonZero(mask)
+#         circularity = 4*np.pi*area/(perimeter*perimeter)
 
-#             fill_ratio = filled / float(total) if total > 0 else 0
+#         if 300 < area < 1200 and circularity > 0.6:
+
+#             (xc,yc),radius=cv2.minEnclosingCircle(c)
+
+#             inner_radius=int(radius*0.65)
+
+#             mask=np.zeros(thresh.shape,dtype="uint8")
+
+#             cv2.circle(mask,(int(xc),int(yc)),inner_radius,255,-1)
+
+#             filled=cv2.countNonZero(cv2.bitwise_and(thresh,thresh,mask=mask))
+#             total=cv2.countNonZero(mask)
+
+#             ratio=filled/float(total) if total>0 else 0
 
 #             bubbles.append({
-#                 "x": int(xc),
-#                 "y": int(yc),
-#                 "f": fill_ratio,
-#                 "h": int(radius * 2)
+#                 "x":int(xc),
+#                 "y":int(yc),
+#                 "f":ratio,
+#                 "h":int(radius*2)
 #             })
 
-#     results = {}
+#             cv2.circle(debug_img,(int(xc),int(yc)),int(radius),(255,0,0),2)
 
 #     # ==============================
-#     # 4️⃣ Stable Slot Mapping
+#     # ANSWER DETECTION
 #     # ==============================
+
+#     results={}
 
 #     for col in OMR_LAYOUT:
 
-#         y_threshold = h_img * col["y_start"]
+#         y_threshold=h_img*col["y_start"]
 
-#         col_bubbles = [
+#         col_bubbles=[
 #             b for b in bubbles
-#             if col["roi"][0] * w_img <= b["x"] <= col["roi"][1] * w_img
+#             if col["roi"][0]*w_img <= b["x"] <= col["roi"][1]*w_img
 #             and b["y"] > y_threshold
 #         ]
 
-#         rows = group_into_rows(col_bubbles)
-#         rows = sorted(rows, key=lambda r: np.mean([b["y"] for b in r]))
+#         rows=group_into_rows(col_bubbles)
 
-#         if len(rows) < 3:
+#         if len(rows)<3:
 #             continue
 
-#         centers = [np.mean([b["y"] for b in r]) for r in rows]
+#         rows=sorted(rows,key=lambda r:np.mean([b["y"] for b in r]))
 
-#         min_y = min(centers)
-#         max_y = max(centers)
-#         expected_gap = (max_y - min_y) / (col["count"] - 1)
+#         for i,row in enumerate(rows):
 
-#         slots = [None] * col["count"]
+#             q_num=col["start"]+i+page_offset
 
-#         for row, center in zip(rows, centers):
-#             index = int(round((center - min_y) / expected_gap))
-#             if 0 <= index < col["count"]:
-#                 slots[index] = row
-
-#         for i in range(col["count"]):
-
-#             q_num = col["start"] + i + page_offset
-#             row = slots[i]
-
-#             if row is None or len(row) < 4:
-#                 results[str(q_num)] = "EMPTY"
+#             if len(row)<4:
+#                 results[str(q_num)]="EMPTY"
 #                 continue
 
-#             row = sorted(row[-4:], key=lambda b: b["x"])
+#             row=sorted(row,key=lambda b:b["x"])[:4]
 
-#             ratios = [b["f"] for b in row]
-#             sorted_idx = np.argsort(ratios)[::-1]
+#             ratios=[b["f"] for b in row]
 
-#             top = ratios[sorted_idx[0]]
-#             second = ratios[sorted_idx[1]]
+#             sorted_idx=np.argsort(ratios)[::-1]
 
-#             if top > FILL_THRESHOLD and (top - second) > 0.12:
-#                 detected_answer = chr(65 + sorted_idx[0])
+#             top=ratios[sorted_idx[0]]
+#             second=ratios[sorted_idx[1]]
+
+#             print("Q",q_num,ratios)
+
+#             if top > FILL_THRESHOLD and (top-second) > 0.12:
+
+#                 detected=chr(65+sorted_idx[0])
+
 #             else:
-#                 detected_answer = "EMPTY"
 
-#             results[str(q_num)] = detected_answer
+#                 detected="EMPTY"
 
-#             print(f"[DETECTED] Q{q_num} -> {detected_answer}")
+#             results[str(q_num)]=detected
 
-#             for idx, b in enumerate(row):
-#                 color = (0, 255, 0) if idx == sorted_idx[0] else (255, 0, 0)
-#                 cv2.circle(final_vis, (b["x"], b["y"]), 10, color, 2)
+#             for idx,b in enumerate(row):
 
-#     cv2.imwrite("debug_final.png", final_vis)
+#                 if idx==sorted_idx[0] and detected!="EMPTY":
 
-#     return {"answers": results}
+#                     cv2.circle(debug_img,(b["x"],b["y"]),12,(0,255,0),3)
+
+#                 else:
+
+#                     cv2.circle(debug_img,(b["x"],b["y"]),10,(0,0,255),2)
+
+#     cv2.imwrite("omr_debug.png",debug_img)
+
+#     return {
+#         "answers":results,
+#         "roll_number":"DEBUG",
+#         "exam_set":"DEBUG"
+#     }
 
 
 # # ==============================
@@ -620,7 +614,9 @@ async def scan_omr(
 #     exam_id: int = Form(...),
 #     db: Session = Depends(get_db),
 # ):
+
 #     try:
+
 #         answer_key = db.query(AnswerKey).filter(
 #             AnswerKey.exam_id == exam_id
 #         ).order_by(AnswerKey.id).all()
@@ -630,102 +626,1721 @@ async def scan_omr(
 #             for i, r in enumerate(answer_key)
 #         }
 
-#         print("\n===== ANSWER KEY FETCHED FROM DB =====")
-#         for q, ans in correct_answers.items():
-#             print(f"[KEY] Q{q} -> {ans}")
-
-#         questions_per_page = sum(col["count"] for col in OMR_LAYOUT)
-
 #         final_data = {}
 
 #         for idx, file in enumerate(files):
-#             page_offset = idx * questions_per_page
-#             page_result = process_sheet(await file.read(), page_offset)
+
+#             page_result = process_sheet(await file.read())
+
 #             final_data.update(page_result.get("answers", {}))
 
-#             score = 0
-#             wrong_questions = []
-#             skipped_questions = []
-#             detailed = {}
-
-#             print("\n===== COMPARISON RESULT =====")
-
-#             for q, correct in correct_answers.items():
-
-#                 student = final_data.get(q, "EMPTY")
-
-#                 if student == correct:
-#                     score += 1
-#                     status = "correct"
-
-#                 elif student == "EMPTY":
-#                     status = "unanswered"
-#                     skipped_questions.append(q)
-
-#                 else:
-#                     status = "wrong"
-#                     wrong_questions.append(q)
-
-#                 print(f"Q{q} | Student: {student} | Correct: {correct} | Result: {status}")
-
-#                 detailed[q] = {
-#                     "student": student,
-#                     "correct": correct,
-#                     "result": status
-#                 }
-
-#             print(f"\nFINAL SCORE: {score} / {len(correct_answers)}")
-#             print(f"WRONG QUESTIONS: {wrong_questions}")
-#             print(f"SKIPPED QUESTIONS: {skipped_questions}")
-
-#             return {
-#                 "status": "success",
-#                 "data": {
-#                     "score": score,
-#                     "total": len(correct_answers),
-#                     "percentage": round((score / len(correct_answers)) * 100, 2),
-
-#                     # 🔥 NOW RETURNING THESE
-#                     "wrong_questions": wrong_questions,
-#                     "unanswered_questions": skipped_questions,
-
-#                     "detailed_results": detailed
-#                 }
-# }
-
-#         print("\n===== COMPARISON RESULT =====")
+#         score = 0
 
 #         for q, correct in correct_answers.items():
-#             student = final_data.get(q, "EMPTY")
 
-#             if student == correct:
+#             if final_data.get(q) == correct:
 #                 score += 1
-#                 status = "correct"
-#             elif student == "EMPTY":
-#                 status = "unanswered"
-#             else:
-#                 status = "wrong"
 
-#             print(f"Q{q} | Student: {student} | Correct: {correct} | Result: {status}")
-
-#             detailed[q] = {
-#                 "student": student,
-#                 "correct": correct,
-#                 "result": status
-#             }
-
-#         print(f"\nFINAL SCORE: {score} / {len(correct_answers)}")
+#         print("FINAL SCORE:",score)
 
 #         return {
-#             "status": "success",
-#             "data": {
-#                 "score": score,
-#                 "total": len(correct_answers),
-#                 "percentage": round((score / len(correct_answers)) * 100, 2),
-#                 "detailed_results": detailed
-#             }
+#             "status":"success",
+#             "score":score
 #         }
 
 #     except Exception as e:
+
 #         traceback.print_exc()
-#         return {"status": "error", "message": str(e)}
+
+#         return {"status":"error","message":str(e)}
+
+
+
+
+
+
+
+
+
+
+
+# # import cv2
+# # import numpy as np
+# # import traceback
+# # from typing import List, Dict, Any
+# # from fastapi import APIRouter, UploadFile, File, Form, Depends
+# # from sqlalchemy.orm import Session
+
+# # from app.db.session import get_db
+# # from app.models.answer_key import AnswerKey
+# # from app.models.result import Result
+
+# # router = APIRouter()
+
+# # # ==============================
+# # # CONFIG
+# # # ==============================
+
+# # OMR_LAYOUT = [
+# #     {"start": 1, "count": 23, "roi": (0.08, 0.26), "y_start": 0.48},
+# #     {"start": 24, "count": 41, "roi": (0.32, 0.48), "y_start": 0.14},
+# #     {"start": 65, "count": 36, "roi": (0.55, 0.75), "y_start": 0.14},
+# # ]
+
+# # FILL_THRESHOLD = 0.50
+# # MIN_MARKER_AREA = 600
+
+
+# # # ==============================
+# # # GROUP BUBBLES INTO ROWS
+# # # ==============================
+
+# # def group_into_rows(b_list: List[Dict]) -> List[List[Dict]]:
+
+# #     if not b_list:
+# #         return []
+
+# #     b_list.sort(key=lambda b: b["y"])
+
+# #     median_h = np.median([b["h"] for b in b_list])
+# #     y_tol = median_h * 0.75
+
+# #     rows = []
+# #     current = [b_list[0]]
+
+# #     for b in b_list[1:]:
+
+# #         if abs(b["y"] - current[0]["y"]) < y_tol:
+# #             current.append(b)
+
+# #         else:
+# #             current.sort(key=lambda x: x["x"])
+# #             rows.append(current)
+# #             current = [b]
+
+# #     current.sort(key=lambda x: x["x"])
+# #     rows.append(current)
+
+# #     return rows
+
+
+# # # ==============================
+# # # PROCESS SHEET
+# # # ==============================
+
+# # def process_sheet(image_bytes: bytes, page_offset: int = 0) -> Dict[str, Any]:
+
+# #     nparr = np.frombuffer(image_bytes, np.uint8)
+# #     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+# #     if img is None:
+# #         return {}
+
+# #     # ------------------------------
+# #     # Perspective correction
+# #     # ------------------------------
+
+# #     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# #     blur = cv2.GaussianBlur(gray, (7, 7), 0)
+
+# #     thresh_marker = cv2.adaptiveThreshold(
+# #         blur, 255,
+# #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+# #         cv2.THRESH_BINARY_INV,
+# #         51, 10
+# #     )
+
+# #     contours, _ = cv2.findContours(thresh_marker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# #     markers = []
+
+# #     for c in contours:
+
+# #         if cv2.contourArea(c) > MIN_MARKER_AREA:
+
+# #             x, y, w, h = cv2.boundingRect(c)
+
+# #             if 0.8 < (w / float(h)) < 1.2:
+
+# #                 markers.append((x + w // 2, y + h // 2))
+
+# #     if len(markers) >= 4:
+
+# #         markers = np.array(markers, dtype="float32")
+
+# #         rect = np.zeros((4, 2), dtype="float32")
+
+# #         s = markers.sum(axis=1)
+# #         diff = np.diff(markers, axis=1)
+
+# #         rect[0] = markers[np.argmin(s)]
+# #         rect[2] = markers[np.argmax(s)]
+# #         rect[1] = markers[np.argmin(diff)]
+# #         rect[3] = markers[np.argmax(diff)]
+
+# #         (tl, tr, br, bl) = rect
+
+# #         maxWidth = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
+# #         maxHeight = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))
+
+# #         dst = np.array([
+# #             [0, 0],
+# #             [maxWidth - 1, 0],
+# #             [maxWidth - 1, maxHeight - 1],
+# #             [0, maxHeight - 1]
+# #         ], dtype="float32")
+
+# #         M = cv2.getPerspectiveTransform(rect, dst)
+
+# #         warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+
+# #     else:
+
+# #         warped = img
+
+# #     # debug image
+# #     debug_img = warped.copy()
+
+# #     # ------------------------------
+# #     # threshold
+# #     # ------------------------------
+
+# #     w_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+# #     w_blur = cv2.GaussianBlur(w_gray, (3, 3), 0)
+
+# #     w_thresh = cv2.adaptiveThreshold(
+# #         w_blur, 255,
+# #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+# #         cv2.THRESH_BINARY_INV,
+# #         31, 7
+# #     )
+
+# #     contours, _ = cv2.findContours(w_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# #     bubbles = []
+
+# #     h_img, w_img = warped.shape[:2]
+
+# #     # ------------------------------
+# #     # bubble detection
+# #     # ------------------------------
+
+# #     for c in contours:
+
+# #         area = cv2.contourArea(c)
+
+# #         if 200 < area < 1800:
+
+# #             (xc, yc), radius = cv2.minEnclosingCircle(c)
+
+# #             inner_radius = int(radius * 0.40)
+
+# #             mask = np.zeros(w_thresh.shape, dtype="uint8")
+
+# #             cv2.circle(mask, (int(xc), int(yc)), inner_radius, 255, -1)
+
+# #             filled = cv2.countNonZero(cv2.bitwise_and(w_thresh, w_thresh, mask=mask))
+# #             total = cv2.countNonZero(mask)
+
+# #             fill_ratio = filled / float(total) if total > 0 else 0
+
+# #             bubbles.append({
+# #                 "x": int(xc),
+# #                 "y": int(yc),
+# #                 "f": fill_ratio,
+# #                 "h": int(radius * 2)
+# #             })
+
+# #             # draw detected bubble
+# #             cv2.circle(debug_img, (int(xc), int(yc)), int(radius), (255, 0, 0), 2)
+
+# #     # ==============================
+# #     # QUESTION DETECTION
+# #     # ==============================
+
+# #     results = {}
+
+# #     for col in OMR_LAYOUT:
+
+# #         y_threshold = h_img * col["y_start"]
+
+# #         col_bubbles = [
+# #             b for b in bubbles
+# #             if col["roi"][0] * w_img <= b["x"] <= col["roi"][1] * w_img
+# #             and b["y"] > y_threshold
+# #         ]
+
+# #         rows = group_into_rows(col_bubbles)
+
+# #         rows = sorted(rows, key=lambda r: np.mean([b["y"] for b in r]))
+
+# #         if len(rows) < 3:
+# #             continue
+
+# #         centers = [np.mean([b["y"] for b in r]) for r in rows]
+
+# #         min_y = min(centers)
+# #         max_y = max(centers)
+
+# #         expected_gap = (max_y - min_y) / (col["count"] - 1)
+
+# #         slots = [None] * col["count"]
+
+# #         for row, center in zip(rows, centers):
+
+# #             index = int(round((center - min_y) / expected_gap))
+
+# #             if 0 <= index < col["count"]:
+# #                 slots[index] = row
+
+# #         for i in range(col["count"]):
+
+# #             q_num = col["start"] + i + page_offset
+
+# #             row = slots[i]
+
+# #             if row is None or len(row) < 4:
+# #                 results[str(q_num)] = "EMPTY"
+# #                 continue
+
+# #             # FIX: use first 4 bubbles not last
+# #             row = sorted(row, key=lambda b: b["x"])[:4]
+
+# #             ratios = [b["f"] for b in row]
+
+# #             print("Q", q_num, ratios)
+
+# #             max_idx = np.argmax(ratios)
+
+# #             for idx, b in enumerate(row):
+
+# #                 if idx == max_idx and ratios[max_idx] > FILL_THRESHOLD:
+
+# #                     cv2.circle(debug_img, (b["x"], b["y"]), 12, (0,255,0), 3)
+
+# #                 else:
+
+# #                     cv2.circle(debug_img, (b["x"], b["y"]), 10, (0,0,255), 2)
+
+# #             if ratios[max_idx] > FILL_THRESHOLD:
+
+# #                 detected_answer = chr(65 + max_idx)
+
+# #             else:
+
+# #                 detected_answer = "EMPTY"
+
+# #             results[str(q_num)] = detected_answer
+
+# #     # ==============================
+# #     # ROLL NUMBER
+# #     # ==============================
+
+# #     roll_number = "EMPTY"
+
+# #     roll_area = [
+# #         b for b in bubbles
+# #         if 0.05 * w_img < b["x"] < 0.30 * w_img
+# #         and 0.18 * h_img < b["y"] < 0.55 * h_img
+# #     ]
+
+# #     if roll_area:
+
+# #         roll_area = sorted(roll_area, key=lambda b: b["x"])
+
+# #         digit_columns = []
+
+# #         current = [roll_area[0]]
+
+# #         x_tol = 25
+
+# #         for b in roll_area[1:]:
+
+# #             if abs(b["x"] - current[0]["x"]) < x_tol:
+
+# #                 current.append(b)
+
+# #             else:
+
+# #                 digit_columns.append(current)
+
+# #                 current = [b]
+
+# #         digit_columns.append(current)
+
+# #         digits = []
+
+# #         for col in digit_columns:
+
+# #             col = sorted(col, key=lambda b: b["y"])
+
+# #             ratios = [b["f"] for b in col]
+
+# #             if not ratios:
+# #                 continue
+
+# #             max_idx = np.argmax(ratios)
+
+# #             if ratios[max_idx] > FILL_THRESHOLD:
+
+# #                 digits.append(str(max_idx))
+
+# #         if digits:
+
+# #             roll_number = "".join(digits)
+
+# #     print("DETECTED ROLL NUMBER:", roll_number)
+
+# #     # ==============================
+# #     # EXAM SET
+# #     # ==============================
+
+# #     exam_set = "EMPTY"
+
+# #     set_area = [
+# #         b for b in bubbles
+# #         if 0.05 * w_img < b["x"] < 0.30 * w_img
+# #         and b["y"] < 0.18 * h_img
+# #     ]
+
+# #     if set_area:
+
+# #         set_area = sorted(set_area, key=lambda b: b["x"])
+
+# #         ratios = [b["f"] for b in set_area]
+
+# #         max_idx = np.argmax(ratios)
+
+# #         if ratios[max_idx] > FILL_THRESHOLD:
+
+# #             exam_set = str(max_idx + 1)
+
+# #     print("DETECTED EXAM SET:", exam_set)
+
+# #     # save debug image
+# #     cv2.imwrite("omr_debug.png", debug_img)
+
+# #     return {
+# #         "answers": results,
+# #         "roll_number": roll_number,
+# #         "exam_set": exam_set
+# #     }
+
+
+# # # ==============================
+# # # API ROUTE
+# # # ==============================
+
+# # @router.post("/scan-omr")
+# # async def scan_omr(
+# #     files: List[UploadFile] = File(...),
+# #     exam_id: int = Form(...),
+# #     db: Session = Depends(get_db),
+# # ):
+
+# #     try:
+
+# #         answer_key = db.query(AnswerKey).filter(
+# #             AnswerKey.exam_id == exam_id
+# #         ).order_by(AnswerKey.id).all()
+
+# #         correct_answers = {
+# #             str(i + 1): r.correct_option.strip().upper()
+# #             for i, r in enumerate(answer_key)
+# #         }
+
+# #         questions_per_page = sum(col["count"] for col in OMR_LAYOUT)
+
+# #         final_data = {}
+# #         roll_number = "EMPTY"
+# #         exam_set = "EMPTY"
+
+# #         for idx, file in enumerate(files):
+
+# #             page_offset = idx * questions_per_page
+
+# #             page_result = process_sheet(await file.read(), page_offset)
+
+# #             final_data.update(page_result.get("answers", {}))
+
+# #             if idx == 0:
+
+# #                 roll_number = page_result.get("roll_number", "EMPTY")
+# #                 exam_set = page_result.get("exam_set", "EMPTY")
+
+# #         score = 0
+# #         wrong_questions = []
+# #         skipped_questions = []
+# #         detailed = {}
+
+# #         for q, correct in correct_answers.items():
+
+# #             student = final_data.get(q, "EMPTY")
+
+# #             if student == correct:
+# #                 score += 1
+# #                 status = "correct"
+
+# #             elif student == "EMPTY":
+# #                 status = "unanswered"
+# #                 skipped_questions.append(q)
+
+# #             else:
+# #                 status = "wrong"
+# #                 wrong_questions.append(q)
+
+# #             detailed[q] = {
+# #                 "student": student,
+# #                 "correct": correct,
+# #                 "result": status
+# #             }
+
+# #         percentage = round((score / len(correct_answers)) * 100, 2)
+
+# #         print("FINAL ROLL NUMBER:", roll_number)
+# #         print("FINAL SCORE:", score)
+
+# #         return {
+# #             "status": "success",
+# #             "data": {
+# #                 "roll_number": roll_number,
+# #                 "exam_set": exam_set,
+# #                 "score": score,
+# #                 "total": len(correct_answers),
+# #                 "percentage": percentage,
+# #                 "wrong_questions": wrong_questions,
+# #                 "unanswered_questions": skipped_questions,
+# #                 "detailed_results": detailed
+# #             }
+# #         }
+
+# #     except Exception as e:
+
+# #         traceback.print_exc()
+
+# #         return {"status": "error", "message": str(e)}
+
+
+# # # import cv2
+# # # import numpy as np
+# # # import traceback
+# # # from typing import List, Dict, Any
+# # # from fastapi import APIRouter, UploadFile, File, Form, Depends
+# # # from sqlalchemy.orm import Session
+
+# # # from app.db.session import get_db
+# # # from app.models.answer_key import AnswerKey
+# # # from app.models.result import Result
+
+# # # router = APIRouter()
+
+# # # # ==============================
+# # # # CONFIG
+# # # # ==============================
+
+# # # OMR_LAYOUT = [
+# # #     {"start": 1, "count": 23, "roi": (0.08, 0.26), "y_start": 0.48},
+# # #     {"start": 24, "count": 41, "roi": (0.32, 0.48), "y_start": 0.14},
+# # #     {"start": 65, "count": 36, "roi": (0.55, 0.75), "y_start": 0.14},
+# # # ]
+
+# # # FILL_THRESHOLD = 0.50
+# # # MIN_MARKER_AREA = 600
+
+
+# # # # ==============================
+# # # # HELPER
+# # # # ==============================
+
+# # # def group_into_rows(b_list: List[Dict]) -> List[List[Dict]]:
+# # #     if not b_list:
+# # #         return []
+
+# # #     b_list.sort(key=lambda b: b["y"])
+# # #     median_h = np.median([b["h"] for b in b_list])
+# # #     y_tol = median_h * 0.75
+
+# # #     rows = []
+# # #     current = [b_list[0]]
+
+# # #     for b in b_list[1:]:
+# # #         if abs(b["y"] - current[0]["y"]) < y_tol:
+# # #             current.append(b)
+# # #         else:
+# # #             current.sort(key=lambda x: x["x"])
+# # #             rows.append(current)
+# # #             current = [b]
+
+# # #     current.sort(key=lambda x: x["x"])
+# # #     rows.append(current)
+# # #     return rows
+
+
+# # # # ==============================
+# # # # PROCESS SHEET
+# # # # ==============================
+
+# # # def process_sheet(image_bytes: bytes, page_offset: int = 0) -> Dict[str, Any]:
+
+# # #     nparr = np.frombuffer(image_bytes, np.uint8)
+# # #     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+# # #     if img is None:
+# # #         return {}
+
+# # #     # ------------------------------
+# # #     # Perspective Correction
+# # #     # ------------------------------
+
+# # #     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# # #     blur = cv2.GaussianBlur(gray, (7, 7), 0)
+
+# # #     thresh_marker = cv2.adaptiveThreshold(
+# # #         blur, 255,
+# # #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+# # #         cv2.THRESH_BINARY_INV,
+# # #         51, 10
+# # #     )
+
+# # #     contours, _ = cv2.findContours(thresh_marker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# # #     markers = []
+# # #     for c in contours:
+# # #         if cv2.contourArea(c) > MIN_MARKER_AREA:
+# # #             x, y, w, h = cv2.boundingRect(c)
+# # #             if 0.8 < (w / float(h)) < 1.2:
+# # #                 markers.append((x + w // 2, y + h // 2))
+
+# # #     if len(markers) >= 4:
+# # #         markers = np.array(markers, dtype="float32")
+# # #         rect = np.zeros((4, 2), dtype="float32")
+
+# # #         s = markers.sum(axis=1)
+# # #         diff = np.diff(markers, axis=1)
+
+# # #         rect[0] = markers[np.argmin(s)]
+# # #         rect[2] = markers[np.argmax(s)]
+# # #         rect[1] = markers[np.argmin(diff)]
+# # #         rect[3] = markers[np.argmax(diff)]
+
+# # #         (tl, tr, br, bl) = rect
+
+# # #         maxWidth = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
+# # #         maxHeight = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))
+
+# # #         dst = np.array([
+# # #             [0, 0],
+# # #             [maxWidth - 1, 0],
+# # #             [maxWidth - 1, maxHeight - 1],
+# # #             [0, maxHeight - 1]
+# # #         ], dtype="float32")
+
+# # #         M = cv2.getPerspectiveTransform(rect, dst)
+# # #         warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+# # #     else:
+# # #         warped = img
+
+# # #     # ------------------------------
+# # #     # Threshold
+# # #     # ------------------------------
+
+# # #     w_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+# # #     w_blur = cv2.GaussianBlur(w_gray, (3, 3), 0)
+
+# # #     w_thresh = cv2.adaptiveThreshold(
+# # #         w_blur, 255,
+# # #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+# # #         cv2.THRESH_BINARY_INV,
+# # #         31, 7
+# # #     )
+
+# # #     contours, _ = cv2.findContours(w_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# # #     bubbles = []
+# # #     h_img, w_img = warped.shape[:2]
+
+# # #     for c in contours:
+# # #         area = cv2.contourArea(c)
+# # #         if 200 < area < 1800:
+# # #             (xc, yc), radius = cv2.minEnclosingCircle(c)
+# # #             inner_radius = int(radius * 0.40)
+
+# # #             mask = np.zeros(w_thresh.shape, dtype="uint8")
+# # #             cv2.circle(mask, (int(xc), int(yc)), inner_radius, 255, -1)
+
+# # #             filled = cv2.countNonZero(cv2.bitwise_and(w_thresh, w_thresh, mask=mask))
+# # #             total = cv2.countNonZero(mask)
+
+# # #             fill_ratio = filled / float(total) if total > 0 else 0
+
+# # #             bubbles.append({
+# # #                 "x": int(xc),
+# # #                 "y": int(yc),
+# # #                 "f": fill_ratio,
+# # #                 "h": int(radius * 2)
+# # #             })
+
+# # #     # ==============================
+# # #     # QUESTION EXTRACTION
+# # #     # ==============================
+
+# # #     results = {}
+
+# # #     for col in OMR_LAYOUT:
+
+# # #         y_threshold = h_img * col["y_start"]
+
+# # #         col_bubbles = [
+# # #             b for b in bubbles
+# # #             if col["roi"][0] * w_img <= b["x"] <= col["roi"][1] * w_img
+# # #             and b["y"] > y_threshold
+# # #         ]
+
+# # #         rows = group_into_rows(col_bubbles)
+# # #         rows = sorted(rows, key=lambda r: np.mean([b["y"] for b in r]))
+
+# # #         if len(rows) < 3:
+# # #             continue
+
+# # #         centers = [np.mean([b["y"] for b in r]) for r in rows]
+# # #         min_y = min(centers)
+# # #         max_y = max(centers)
+# # #         expected_gap = (max_y - min_y) / (col["count"] - 1)
+
+# # #         slots = [None] * col["count"]
+
+# # #         for row, center in zip(rows, centers):
+# # #             index = int(round((center - min_y) / expected_gap))
+# # #             if 0 <= index < col["count"]:
+# # #                 slots[index] = row
+
+# # #         for i in range(col["count"]):
+# # #             q_num = col["start"] + i + page_offset
+# # #             row = slots[i]
+
+# # #             if row is None or len(row) < 4:
+# # #                 results[str(q_num)] = "EMPTY"
+# # #                 continue
+
+# # #             row = sorted(row[-4:], key=lambda b: b["x"])
+# # #             ratios = [b["f"] for b in row]
+# # #             max_idx = np.argmax(ratios)
+
+# # #             if ratios[max_idx] > FILL_THRESHOLD:
+# # #                 detected_answer = chr(65 + max_idx)
+# # #             else:
+# # #                 detected_answer = "EMPTY"
+
+# # #             results[str(q_num)] = detected_answer
+
+# # #     # ==============================
+# # #     # ROLL NUMBER (0–9 vertical)
+# # #     # ==============================
+
+# # #     roll_number = "EMPTY"
+
+# # #     roll_area = [
+# # #         b for b in bubbles
+# # #         if 0.05 * w_img < b["x"] < 0.30 * w_img
+# # #         and 0.18 * h_img < b["y"] < 0.55 * h_img
+# # #     ]
+
+# # #     if roll_area:
+# # #         roll_area = sorted(roll_area, key=lambda b: b["x"])
+
+# # #         digit_columns = []
+# # #         current = [roll_area[0]]
+# # #         x_tol = 25
+
+# # #         for b in roll_area[1:]:
+# # #             if abs(b["x"] - current[0]["x"]) < x_tol:
+# # #                 current.append(b)
+# # #             else:
+# # #                 digit_columns.append(current)
+# # #                 current = [b]
+
+# # #         digit_columns.append(current)
+
+# # #         digits = []
+
+# # #         for col in digit_columns:
+# # #             col = sorted(col, key=lambda b: b["y"])
+# # #             ratios = [b["f"] for b in col]
+
+# # #             if not ratios:
+# # #                 continue
+
+# # #             max_idx = np.argmax(ratios)
+
+# # #             if ratios[max_idx] > FILL_THRESHOLD:
+# # #                 digits.append(str(max_idx))
+
+# # #         if digits:
+# # #             roll_number = "".join(digits)
+
+# # #     print("DETECTED ROLL NUMBER:", roll_number)
+
+# # #     # ==============================
+# # #     # EXAM SET (1–4 horizontal)
+# # #     # ==============================
+
+# # #     exam_set = "EMPTY"
+
+# # #     set_area = [
+# # #         b for b in bubbles
+# # #         if 0.05 * w_img < b["x"] < 0.30 * w_img
+# # #         and b["y"] < 0.18 * h_img
+# # #     ]
+
+# # #     if set_area:
+# # #         set_area = sorted(set_area, key=lambda b: b["x"])
+# # #         ratios = [b["f"] for b in set_area]
+
+# # #         max_idx = np.argmax(ratios)
+
+# # #         if ratios[max_idx] > FILL_THRESHOLD:
+# # #             exam_set = str(max_idx + 1)
+
+# # #     print("DETECTED EXAM SET:", exam_set)
+
+# # #     return {
+# # #         "answers": results,
+# # #         "roll_number": roll_number,
+# # #         "exam_set": exam_set
+# # #     }
+
+
+# # # # ==============================
+# # # # API ROUTE
+# # # # ==============================
+
+# # # @router.post("/scan-omr")
+# # # async def scan_omr(
+# # #     files: List[UploadFile] = File(...),
+# # #     exam_id: int = Form(...),
+# # #     db: Session = Depends(get_db),
+# # # ):
+# # #     try:
+
+# # #         answer_key = db.query(AnswerKey).filter(
+# # #             AnswerKey.exam_id == exam_id
+# # #         ).order_by(AnswerKey.id).all()
+
+# # #         correct_answers = {
+# # #             str(i + 1): r.correct_option.strip().upper()
+# # #             for i, r in enumerate(answer_key)
+# # #         }
+
+# # #         questions_per_page = sum(col["count"] for col in OMR_LAYOUT)
+
+# # #         final_data = {}
+# # #         roll_number = "EMPTY"
+# # #         exam_set = "EMPTY"
+
+# # #         for idx, file in enumerate(files):
+# # #             page_offset = idx * questions_per_page
+# # #             page_result = process_sheet(await file.read(), page_offset)
+
+# # #             final_data.update(page_result.get("answers", {}))
+
+# # #             if idx == 0:
+# # #                 roll_number = page_result.get("roll_number", "EMPTY")
+# # #                 exam_set = page_result.get("exam_set", "EMPTY")
+
+# # #         score = 0
+# # #         wrong_questions = []
+# # #         skipped_questions = []
+# # #         detailed = {}
+
+# # #         for q, correct in correct_answers.items():
+
+# # #             student = final_data.get(q, "EMPTY")
+
+# # #             if student == correct:
+# # #                 score += 1
+# # #                 status = "correct"
+# # #             elif student == "EMPTY":
+# # #                 status = "unanswered"
+# # #                 skipped_questions.append(q)
+# # #             else:
+# # #                 status = "wrong"
+# # #                 wrong_questions.append(q)
+
+# # #             detailed[q] = {
+# # #                 "student": student,
+# # #                 "correct": correct,
+# # #                 "result": status
+# # #             }
+
+# # #         percentage = round((score / len(correct_answers)) * 100, 2)
+
+# # #         # ==============================
+# # #         # STORE RESULT
+# # #         # ==============================
+
+# # #         existing = db.query(Result).filter(
+# # #             Result.exam_id == exam_id,
+# # #             Result.roll_number == roll_number
+# # #         ).first()
+
+# # #         if existing:
+# # #             existing.score = score
+# # #             existing.total_questions = len(correct_answers)
+# # #         else:
+# # #             new_result = Result(
+# # #                 exam_id=exam_id,
+# # #                 class_id=1,
+# # #                 roll_number=roll_number,
+# # #                 score=score,
+# # #                 total_questions=len(correct_answers)
+# # #             )
+# # #             db.add(new_result)
+
+# # #         db.commit()
+
+# # #         print("FINAL ROLL NUMBER:", roll_number)
+# # #         print("FINAL SCORE:", score)
+
+# # #         return {
+# # #             "status": "success",
+# # #             "data": {
+# # #                 "roll_number": roll_number,
+# # #                 "exam_set": exam_set,
+# # #                 "score": score,
+# # #                 "total": len(correct_answers),
+# # #                 "percentage": percentage,
+# # #                 "wrong_questions": wrong_questions,
+# # #                 "unanswered_questions": skipped_questions,
+# # #                 "detailed_results": detailed
+# # #             }
+# # #         }
+
+# # #     except Exception as e:
+# # #         traceback.print_exc()
+# # #         return {"status": "error", "message": str(e)}
+
+
+
+
+
+
+
+
+
+
+
+
+# # # # import cv2
+# # # # import numpy as np
+# # # # import traceback
+# # # # from typing import List, Dict, Any
+# # # # from fastapi import APIRouter, UploadFile, File, Form, Depends
+# # # # from sqlalchemy.orm import Session
+
+# # # # from app.db.session import get_db
+# # # # from app.models.answer_key import AnswerKey
+# # # # from app.models.result import Result
+
+# # # # router = APIRouter()
+
+# # # # # ==============================
+# # # # # CONFIG
+# # # # # ==============================
+
+# # # # OMR_LAYOUT = [
+# # # #     {"start": 1, "count": 23, "roi": (0.08, 0.26), "y_start": 0.48},
+# # # #     {"start": 24, "count": 41, "roi": (0.32, 0.48), "y_start": 0.14},
+# # # #     {"start": 65, "count": 36, "roi": (0.55, 0.75), "y_start": 0.14},
+# # # # ]
+
+# # # # FILL_THRESHOLD = 0.50
+# # # # MIN_MARKER_AREA = 600
+
+
+# # # # # ==============================
+# # # # # HELPER
+# # # # # ==============================
+
+# # # # def group_into_rows(b_list: List[Dict]) -> List[List[Dict]]:
+# # # #     if not b_list:
+# # # #         return []
+
+# # # #     b_list.sort(key=lambda b: b["y"])
+# # # #     median_h = np.median([b["h"] for b in b_list])
+# # # #     y_tol = median_h * 0.75
+
+# # # #     rows = []
+# # # #     current = [b_list[0]]
+
+# # # #     for b in b_list[1:]:
+# # # #         if abs(b["y"] - current[0]["y"]) < y_tol:
+# # # #             current.append(b)
+# # # #         else:
+# # # #             current.sort(key=lambda x: x["x"])
+# # # #             rows.append(current)
+# # # #             current = [b]
+
+# # # #     current.sort(key=lambda x: x["x"])
+# # # #     rows.append(current)
+# # # #     return rows
+
+
+# # # # # ==============================
+# # # # # PROCESS SHEET
+# # # # # ==============================
+
+# # # # def process_sheet(image_bytes: bytes, page_offset: int = 0) -> Dict[str, Any]:
+
+# # # #     nparr = np.frombuffer(image_bytes, np.uint8)
+# # # #     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+# # # #     if img is None:
+# # # #         return {}
+
+# # # #     # 1️⃣ Perspective correction
+# # # #     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# # # #     blur = cv2.GaussianBlur(gray, (7, 7), 0)
+
+# # # #     thresh_marker = cv2.adaptiveThreshold(
+# # # #         blur, 255,
+# # # #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+# # # #         cv2.THRESH_BINARY_INV,
+# # # #         51, 10
+# # # #     )
+
+# # # #     contours, _ = cv2.findContours(thresh_marker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# # # #     markers = []
+# # # #     for c in contours:
+# # # #         if cv2.contourArea(c) > MIN_MARKER_AREA:
+# # # #             x, y, w, h = cv2.boundingRect(c)
+# # # #             ar = w / float(h)
+# # # #             if 0.8 < ar < 1.2:
+# # # #                 markers.append((x + w // 2, y + h // 2))
+
+# # # #     if len(markers) >= 4:
+# # # #         markers = np.array(markers, dtype="float32")
+# # # #         rect = np.zeros((4, 2), dtype="float32")
+
+# # # #         s = markers.sum(axis=1)
+# # # #         diff = np.diff(markers, axis=1)
+
+# # # #         rect[0] = markers[np.argmin(s)]
+# # # #         rect[2] = markers[np.argmax(s)]
+# # # #         rect[1] = markers[np.argmin(diff)]
+# # # #         rect[3] = markers[np.argmax(diff)]
+
+# # # #         (tl, tr, br, bl) = rect
+
+# # # #         maxWidth = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
+# # # #         maxHeight = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))
+
+# # # #         dst = np.array([
+# # # #             [0, 0],
+# # # #             [maxWidth - 1, 0],
+# # # #             [maxWidth - 1, maxHeight - 1],
+# # # #             [0, maxHeight - 1]
+# # # #         ], dtype="float32")
+
+# # # #         M = cv2.getPerspectiveTransform(rect, dst)
+# # # #         warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+# # # #     else:
+# # # #         warped = img
+
+# # # #     # 2️⃣ Threshold
+# # # #     w_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+# # # #     w_blur = cv2.GaussianBlur(w_gray, (3, 3), 0)
+
+# # # #     w_thresh = cv2.adaptiveThreshold(
+# # # #         w_blur, 255,
+# # # #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+# # # #         cv2.THRESH_BINARY_INV,
+# # # #         31, 7
+# # # #     )
+
+# # # #     contours, _ = cv2.findContours(w_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# # # #     bubbles = []
+# # # #     h_img, w_img = warped.shape[:2]
+
+# # # #     # 3️⃣ Bubble detection
+# # # #     for c in contours:
+# # # #         area = cv2.contourArea(c)
+# # # #         if 200 < area < 1800:
+# # # #             (xc, yc), radius = cv2.minEnclosingCircle(c)
+# # # #             inner_radius = int(radius * 0.40)
+
+# # # #             mask = np.zeros(w_thresh.shape, dtype="uint8")
+# # # #             cv2.circle(mask, (int(xc), int(yc)), inner_radius, 255, -1)
+
+# # # #             filled = cv2.countNonZero(cv2.bitwise_and(w_thresh, w_thresh, mask=mask))
+# # # #             total = cv2.countNonZero(mask)
+
+# # # #             fill_ratio = filled / float(total) if total > 0 else 0
+
+# # # #             bubbles.append({
+# # # #                 "x": int(xc),
+# # # #                 "y": int(yc),
+# # # #                 "f": fill_ratio,
+# # # #                 "h": int(radius * 2)
+# # # #             })
+
+# # # #     results = {}
+
+# # # #     # ==============================
+# # # #     # QUESTION EXTRACTION
+# # # #     # ==============================
+
+# # # #     for col in OMR_LAYOUT:
+
+# # # #         y_threshold = h_img * col["y_start"]
+
+# # # #         col_bubbles = [
+# # # #             b for b in bubbles
+# # # #             if col["roi"][0] * w_img <= b["x"] <= col["roi"][1] * w_img
+# # # #             and b["y"] > y_threshold
+# # # #         ]
+
+# # # #         rows = group_into_rows(col_bubbles)
+# # # #         rows = sorted(rows, key=lambda r: np.mean([b["y"] for b in r]))
+
+# # # #         if len(rows) < 3:
+# # # #             continue
+
+# # # #         centers = [np.mean([b["y"] for b in r]) for r in rows]
+# # # #         min_y = min(centers)
+# # # #         max_y = max(centers)
+# # # #         expected_gap = (max_y - min_y) / (col["count"] - 1)
+
+# # # #         slots = [None] * col["count"]
+
+# # # #         for row, center in zip(rows, centers):
+# # # #             index = int(round((center - min_y) / expected_gap))
+# # # #             if 0 <= index < col["count"]:
+# # # #                 slots[index] = row
+
+# # # #         for i in range(col["count"]):
+
+# # # #             q_num = col["start"] + i + page_offset
+# # # #             row = slots[i]
+
+# # # #             if row is None or len(row) < 4:
+# # # #                 results[str(q_num)] = "EMPTY"
+# # # #                 continue
+
+# # # #             row = sorted(row[-4:], key=lambda b: b["x"])
+# # # #             ratios = [b["f"] for b in row]
+# # # #             sorted_idx = np.argsort(ratios)[::-1]
+
+# # # #             top = ratios[sorted_idx[0]]
+# # # #             second = ratios[sorted_idx[1]]
+
+# # # #             if top > FILL_THRESHOLD and (top - second) > 0.12:
+# # # #                 detected_answer = chr(65 + sorted_idx[0])
+# # # #             else:
+# # # #                 detected_answer = "EMPTY"
+
+# # # #             results[str(q_num)] = detected_answer
+
+# # # #     # ==============================
+# # # #     # ROLL NUMBER (VERTICAL LOGIC)
+# # # #     # ==============================
+
+# # # #     roll_number = "EMPTY"
+
+# # # #     roll_area = [
+# # # #         b for b in bubbles
+# # # #         if 0.05 * w_img < b["x"] < 0.25 * w_img
+# # # #         and 0.18 * h_img < b["y"] < 0.50 * h_img
+# # # #     ]
+
+# # # #     if roll_area:
+
+# # # #         roll_area = sorted(roll_area, key=lambda b: b["x"])
+
+# # # #         digit_columns = []
+# # # #         current_col = [roll_area[0]]
+# # # #         x_tol = 20
+
+# # # #         for b in roll_area[1:]:
+# # # #             if abs(b["x"] - current_col[0]["x"]) < x_tol:
+# # # #                 current_col.append(b)
+# # # #             else:
+# # # #                 digit_columns.append(current_col)
+# # # #                 current_col = [b]
+
+# # # #         digit_columns.append(current_col)
+
+# # # #         digits = []
+
+# # # #         for col in digit_columns:
+
+# # # #             col = sorted(col, key=lambda b: b["y"])
+
+# # # #             if len(col) < 8:
+# # # #                 digits.append("?")
+# # # #                 continue
+
+# # # #             y_positions = [b["y"] for b in col]
+# # # #             min_y = min(y_positions)
+# # # #             max_y = max(y_positions)
+# # # #             expected_gap = (max_y - min_y) / 9
+
+# # # #             slots = [None] * 10
+
+# # # #             for b in col:
+# # # #                 index = int(round((b["y"] - min_y) / expected_gap))
+# # # #                 if 0 <= index <= 9:
+# # # #                     slots[index] = b
+
+# # # #             digit_value = "?"
+
+# # # #             for idx, b in enumerate(slots):
+# # # #                 if b and b["f"] > FILL_THRESHOLD:
+# # # #                     digit_value = str(idx)
+# # # #                     break
+
+# # # #             digits.append(digit_value)
+
+# # # #         if digits:
+# # # #             # roll_number = "".join(digits)
+# # # #             roll_number = "".join(digits).replace("?", "")
+
+# # # #     # ==============================
+# # # #     # EXAM SET
+# # # #     # ==============================
+
+# # # #     exam_set = "EMPTY"
+
+# # # #     set_area = [
+# # # #         b for b in bubbles
+# # # #         if 0.05 * w_img < b["x"] < 0.25 * w_img
+# # # #         and b["y"] < 0.15 * h_img
+# # # #     ]
+
+# # # #     if set_area:
+# # # #         set_area = sorted(set_area, key=lambda b: b["x"])
+# # # #         ratios = [b["f"] for b in set_area]
+# # # #         max_idx = np.argmax(ratios)
+
+# # # #         if ratios[max_idx] > FILL_THRESHOLD:
+# # # #             exam_set = chr(65 + max_idx)
+# # # #     print("DETECTED ROLL NUMBER:", roll_number)
+# # # #     print("DETECTED EXAM SET:", exam_set)
+# # # #     return {
+# # # #         "answers": results,
+# # # #         "roll_number": roll_number,
+# # # #         "exam_set": exam_set
+# # # #     }
+
+
+# # # # # ==============================
+# # # # # API ROUTE
+# # # # # ==============================
+
+# # # # @router.post("/scan-omr")
+# # # # async def scan_omr(
+# # # #     files: List[UploadFile] = File(...),
+# # # #     exam_id: int = Form(...),
+# # # #     db: Session = Depends(get_db),
+# # # # ):
+# # # #     try:
+# # # #         answer_key = db.query(AnswerKey).filter(
+# # # #             AnswerKey.exam_id == exam_id
+# # # #         ).order_by(AnswerKey.id).all()
+
+# # # #         correct_answers = {
+# # # #             str(i + 1): r.correct_option.strip().upper()
+# # # #             for i, r in enumerate(answer_key)
+# # # #         }
+
+# # # #         questions_per_page = sum(col["count"] for col in OMR_LAYOUT)
+
+# # # #         final_data = {}
+# # # #         roll_number = "EMPTY"
+# # # #         exam_set = "EMPTY"
+
+# # # #         for idx, file in enumerate(files):
+# # # #             page_offset = idx * questions_per_page
+# # # #             page_result = process_sheet(await file.read(), page_offset)
+# # # #             final_data.update(page_result.get("answers", {}))
+
+# # # #             if idx == 0:
+# # # #                 roll_number = page_result.get("roll_number", "EMPTY")
+# # # #                 exam_set = page_result.get("exam_set", "EMPTY")
+
+# # # #         score = 0
+# # # #         wrong_questions = []
+# # # #         skipped_questions = []
+# # # #         detailed = {}
+
+# # # #         for q, correct in correct_answers.items():
+
+# # # #             student = final_data.get(q, "EMPTY")
+
+# # # #             if student == correct:
+# # # #                 score += 1
+# # # #                 status = "correct"
+# # # #             elif student == "EMPTY":
+# # # #                 status = "unanswered"
+# # # #                 skipped_questions.append(q)
+# # # #             else:
+# # # #                 status = "wrong"
+# # # #                 wrong_questions.append(q)
+
+# # # #             detailed[q] = {
+# # # #                 "student": student,
+# # # #                 "correct": correct,
+# # # #                 "result": status
+# # # #             }
+# # # #         # ==============================
+# # # #         # STORE RESULT IN DATABASE
+# # # #         # ==============================
+
+# # # #         print("FINAL ROLL NUMBER:", roll_number)
+# # # #         print("FINAL SCORE:", score)
+
+# # # #         if roll_number != "EMPTY" and roll_number.strip() != "":
+# # # #             existing = db.query(Result).filter(
+# # # #                 Result.exam_id == exam_id,
+# # # #                 Result.roll_number == roll_number
+# # # #             ).first()
+
+# # # #             if existing:
+# # # #                 print("Updating existing result...")
+# # # #                 existing.score = score
+# # # #                 existing.total_questions = len(correct_answers)
+# # # #             else:
+# # # #                 print("Creating new result...")
+# # # #                 new_result = Result(
+# # # #                     exam_id=exam_id,
+# # # #                     class_id=1,  # change if needed
+# # # #                     roll_number=roll_number,
+# # # #                     score=score,
+# # # #                     total_questions=len(correct_answers)
+# # # #                 )
+# # # #                 db.add(new_result)
+
+# # # #             db.commit()
+# # # #             print("Result stored successfully")
+# # # #         else:
+# # # #             print("Roll number not detected. Result NOT stored.")
+
+# # # #         return {
+# # # #             "status": "success",
+# # # #             "data": {
+# # # #                 "roll_number": roll_number,
+# # # #                 "exam_set": exam_set,
+# # # #                 "score": score,
+# # # #                 "total": len(correct_answers),
+# # # #                 "percentage": round((score / len(correct_answers)) * 100, 2),
+# # # #                 "wrong_questions": wrong_questions,
+# # # #                 "unanswered_questions": skipped_questions,
+# # # #                 "detailed_results": detailed
+# # # #             }
+# # # #         }
+
+# # # #     except Exception as e:
+# # # #         traceback.print_exc()
+# # # #         return {"status": "error", "message": str(e)}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+# # # # # import cv2
+# # # # # import numpy as np
+# # # # # import traceback
+# # # # # from typing import List, Dict, Any
+# # # # # from fastapi import APIRouter, UploadFile, File, Form, Depends
+# # # # # from sqlalchemy.orm import Session
+
+# # # # # from app.db.session import get_db
+# # # # # from app.models.answer_key import AnswerKey
+
+# # # # # router = APIRouter()
+
+# # # # # # ==============================
+# # # # # # CONFIG
+# # # # # # ==============================
+
+# # # # # OMR_LAYOUT = [
+# # # # #     {"start": 1, "count": 23, "roi": (0.08, 0.26), "y_start": 0.48},
+# # # # #     {"start": 24, "count": 41, "roi": (0.32, 0.48), "y_start": 0.14},
+# # # # #     {"start": 65, "count": 36, "roi": (0.55, 0.75), "y_start": 0.14},
+# # # # # ]
+
+# # # # # FILL_THRESHOLD = 0.50
+# # # # # MIN_MARKER_AREA = 600
+
+
+# # # # # # ==============================
+# # # # # # ROW GROUPING
+# # # # # # ==============================
+
+# # # # # def group_into_rows(b_list: List[Dict]) -> List[List[Dict]]:
+# # # # #     if not b_list:
+# # # # #         return []
+
+# # # # #     b_list.sort(key=lambda b: b["y"])
+# # # # #     median_h = np.median([b["h"] for b in b_list])
+# # # # #     y_tol = median_h * 0.75
+
+# # # # #     rows = []
+# # # # #     current = [b_list[0]]
+
+# # # # #     for b in b_list[1:]:
+# # # # #         if abs(b["y"] - current[0]["y"]) < y_tol:
+# # # # #             current.append(b)
+# # # # #         else:
+# # # # #             current.sort(key=lambda x: x["x"])
+# # # # #             rows.append(current)
+# # # # #             current = [b]
+
+# # # # #     current.sort(key=lambda x: x["x"])
+# # # # #     rows.append(current)
+# # # # #     return rows
+
+
+# # # # # # ==============================
+# # # # # # PROCESS SHEET
+# # # # # # ==============================
+
+# # # # # def process_sheet(image_bytes: bytes, page_offset: int = 0) -> Dict[str, Any]:
+
+# # # # #     nparr = np.frombuffer(image_bytes, np.uint8)
+# # # # #     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+# # # # #     if img is None:
+# # # # #         return {}
+
+# # # # #     # ==============================
+# # # # #     # 1️⃣ Perspective Correction
+# # # # #     # ==============================
+
+# # # # #     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# # # # #     blur = cv2.GaussianBlur(gray, (7, 7), 0)
+
+# # # # #     thresh_marker = cv2.adaptiveThreshold(
+# # # # #         blur, 255,
+# # # # #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+# # # # #         cv2.THRESH_BINARY_INV,
+# # # # #         51, 10
+# # # # #     )
+
+# # # # #     contours, _ = cv2.findContours(thresh_marker, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# # # # #     markers = []
+# # # # #     for c in contours:
+# # # # #         area = cv2.contourArea(c)
+# # # # #         if area > MIN_MARKER_AREA:
+# # # # #             x, y, w, h = cv2.boundingRect(c)
+# # # # #             ar = w / float(h)
+# # # # #             if 0.8 < ar < 1.2:
+# # # # #                 markers.append((x + w // 2, y + h // 2))
+
+# # # # #     if len(markers) >= 4:
+# # # # #         markers = np.array(markers, dtype="float32")
+# # # # #         rect = np.zeros((4, 2), dtype="float32")
+
+# # # # #         s = markers.sum(axis=1)
+# # # # #         diff = np.diff(markers, axis=1)
+
+# # # # #         rect[0] = markers[np.argmin(s)]
+# # # # #         rect[2] = markers[np.argmax(s)]
+# # # # #         rect[1] = markers[np.argmin(diff)]
+# # # # #         rect[3] = markers[np.argmax(diff)]
+
+# # # # #         (tl, tr, br, bl) = rect
+
+# # # # #         maxWidth = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
+# # # # #         maxHeight = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))
+
+# # # # #         dst = np.array([
+# # # # #             [0, 0],
+# # # # #             [maxWidth - 1, 0],
+# # # # #             [maxWidth - 1, maxHeight - 1],
+# # # # #             [0, maxHeight - 1]
+# # # # #         ], dtype="float32")
+
+# # # # #         M = cv2.getPerspectiveTransform(rect, dst)
+# # # # #         warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+# # # # #     else:
+# # # # #         warped = img
+
+# # # # #     # ==============================
+# # # # #     # 2️⃣ Adaptive Threshold (ONLY)
+# # # # #     # ==============================
+
+# # # # #     w_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+# # # # #     w_blur = cv2.GaussianBlur(w_gray, (3, 3), 0)
+
+# # # # #     w_thresh = cv2.adaptiveThreshold(
+# # # # #         w_blur, 255,
+# # # # #         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+# # # # #         cv2.THRESH_BINARY_INV,
+# # # # #         31, 7
+# # # # #     )
+
+# # # # #     contours, _ = cv2.findContours(w_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# # # # #     bubbles = []
+# # # # #     final_vis = warped.copy()
+# # # # #     h_img, w_img = warped.shape[:2]
+
+# # # # #     # ==============================
+# # # # #     # 3️⃣ Bubble Detection (Inner Core Only)
+# # # # #     # ==============================
+
+# # # # #     for c in contours:
+# # # # #         area = cv2.contourArea(c)
+# # # # #         if 200 < area < 1800:
+
+# # # # #             (xc, yc), radius = cv2.minEnclosingCircle(c)
+# # # # #             inner_radius = int(radius * 0.40)   # 🔥 key fix
+
+# # # # #             mask = np.zeros(w_thresh.shape, dtype="uint8")
+# # # # #             cv2.circle(mask, (int(xc), int(yc)), inner_radius, 255, -1)
+
+# # # # #             filled = cv2.countNonZero(cv2.bitwise_and(w_thresh, w_thresh, mask=mask))
+# # # # #             total = cv2.countNonZero(mask)
+
+# # # # #             fill_ratio = filled / float(total) if total > 0 else 0
+
+# # # # #             bubbles.append({
+# # # # #                 "x": int(xc),
+# # # # #                 "y": int(yc),
+# # # # #                 "f": fill_ratio,
+# # # # #                 "h": int(radius * 2)
+# # # # #             })
+
+# # # # #     results = {}
+
+# # # # #     # ==============================
+# # # # #     # 4️⃣ Stable Slot Mapping
+# # # # #     # ==============================
+
+# # # # #     for col in OMR_LAYOUT:
+
+# # # # #         y_threshold = h_img * col["y_start"]
+
+# # # # #         col_bubbles = [
+# # # # #             b for b in bubbles
+# # # # #             if col["roi"][0] * w_img <= b["x"] <= col["roi"][1] * w_img
+# # # # #             and b["y"] > y_threshold
+# # # # #         ]
+
+# # # # #         rows = group_into_rows(col_bubbles)
+# # # # #         rows = sorted(rows, key=lambda r: np.mean([b["y"] for b in r]))
+
+# # # # #         if len(rows) < 3:
+# # # # #             continue
+
+# # # # #         centers = [np.mean([b["y"] for b in r]) for r in rows]
+
+# # # # #         min_y = min(centers)
+# # # # #         max_y = max(centers)
+# # # # #         expected_gap = (max_y - min_y) / (col["count"] - 1)
+
+# # # # #         slots = [None] * col["count"]
+
+# # # # #         for row, center in zip(rows, centers):
+# # # # #             index = int(round((center - min_y) / expected_gap))
+# # # # #             if 0 <= index < col["count"]:
+# # # # #                 slots[index] = row
+
+# # # # #         for i in range(col["count"]):
+
+# # # # #             q_num = col["start"] + i + page_offset
+# # # # #             row = slots[i]
+
+# # # # #             if row is None or len(row) < 4:
+# # # # #                 results[str(q_num)] = "EMPTY"
+# # # # #                 continue
+
+# # # # #             row = sorted(row[-4:], key=lambda b: b["x"])
+
+# # # # #             ratios = [b["f"] for b in row]
+# # # # #             sorted_idx = np.argsort(ratios)[::-1]
+
+# # # # #             top = ratios[sorted_idx[0]]
+# # # # #             second = ratios[sorted_idx[1]]
+
+# # # # #             if top > FILL_THRESHOLD and (top - second) > 0.12:
+# # # # #                 detected_answer = chr(65 + sorted_idx[0])
+# # # # #             else:
+# # # # #                 detected_answer = "EMPTY"
+
+# # # # #             results[str(q_num)] = detected_answer
+
+# # # # #             print(f"[DETECTED] Q{q_num} -> {detected_answer}")
+
+# # # # #             for idx, b in enumerate(row):
+# # # # #                 color = (0, 255, 0) if idx == sorted_idx[0] else (255, 0, 0)
+# # # # #                 cv2.circle(final_vis, (b["x"], b["y"]), 10, color, 2)
+
+# # # # #     cv2.imwrite("debug_final.png", final_vis)
+
+# # # # #     return {"answers": results}
+
+
+# # # # # # ==============================
+# # # # # # API ROUTE
+# # # # # # ==============================
+
+# # # # # @router.post("/scan-omr")
+# # # # # async def scan_omr(
+# # # # #     files: List[UploadFile] = File(...),
+# # # # #     exam_id: int = Form(...),
+# # # # #     db: Session = Depends(get_db),
+# # # # # ):
+# # # # #     try:
+# # # # #         answer_key = db.query(AnswerKey).filter(
+# # # # #             AnswerKey.exam_id == exam_id
+# # # # #         ).order_by(AnswerKey.id).all()
+
+# # # # #         correct_answers = {
+# # # # #             str(i + 1): r.correct_option.strip().upper()
+# # # # #             for i, r in enumerate(answer_key)
+# # # # #         }
+
+# # # # #         print("\n===== ANSWER KEY FETCHED FROM DB =====")
+# # # # #         for q, ans in correct_answers.items():
+# # # # #             print(f"[KEY] Q{q} -> {ans}")
+
+# # # # #         questions_per_page = sum(col["count"] for col in OMR_LAYOUT)
+
+# # # # #         final_data = {}
+
+# # # # #         for idx, file in enumerate(files):
+# # # # #             page_offset = idx * questions_per_page
+# # # # #             page_result = process_sheet(await file.read(), page_offset)
+# # # # #             final_data.update(page_result.get("answers", {}))
+
+# # # # #             score = 0
+# # # # #             wrong_questions = []
+# # # # #             skipped_questions = []
+# # # # #             detailed = {}
+
+# # # # #             print("\n===== COMPARISON RESULT =====")
+
+# # # # #             for q, correct in correct_answers.items():
+
+# # # # #                 student = final_data.get(q, "EMPTY")
+
+# # # # #                 if student == correct:
+# # # # #                     score += 1
+# # # # #                     status = "correct"
+
+# # # # #                 elif student == "EMPTY":
+# # # # #                     status = "unanswered"
+# # # # #                     skipped_questions.append(q)
+
+# # # # #                 else:
+# # # # #                     status = "wrong"
+# # # # #                     wrong_questions.append(q)
+
+# # # # #                 print(f"Q{q} | Student: {student} | Correct: {correct} | Result: {status}")
+
+# # # # #                 detailed[q] = {
+# # # # #                     "student": student,
+# # # # #                     "correct": correct,
+# # # # #                     "result": status
+# # # # #                 }
+
+# # # # #             print(f"\nFINAL SCORE: {score} / {len(correct_answers)}")
+# # # # #             print(f"WRONG QUESTIONS: {wrong_questions}")
+# # # # #             print(f"SKIPPED QUESTIONS: {skipped_questions}")
+
+# # # # #             return {
+# # # # #                 "status": "success",
+# # # # #                 "data": {
+# # # # #                     "score": score,
+# # # # #                     "total": len(correct_answers),
+# # # # #                     "percentage": round((score / len(correct_answers)) * 100, 2),
+
+# # # # #                     # 🔥 NOW RETURNING THESE
+# # # # #                     "wrong_questions": wrong_questions,
+# # # # #                     "unanswered_questions": skipped_questions,
+
+# # # # #                     "detailed_results": detailed
+# # # # #                 }
+# # # # # }
+
+# # # # #         print("\n===== COMPARISON RESULT =====")
+
+# # # # #         for q, correct in correct_answers.items():
+# # # # #             student = final_data.get(q, "EMPTY")
+
+# # # # #             if student == correct:
+# # # # #                 score += 1
+# # # # #                 status = "correct"
+# # # # #             elif student == "EMPTY":
+# # # # #                 status = "unanswered"
+# # # # #             else:
+# # # # #                 status = "wrong"
+
+# # # # #             print(f"Q{q} | Student: {student} | Correct: {correct} | Result: {status}")
+
+# # # # #             detailed[q] = {
+# # # # #                 "student": student,
+# # # # #                 "correct": correct,
+# # # # #                 "result": status
+# # # # #             }
+
+# # # # #         print(f"\nFINAL SCORE: {score} / {len(correct_answers)}")
+
+# # # # #         return {
+# # # # #             "status": "success",
+# # # # #             "data": {
+# # # # #                 "score": score,
+# # # # #                 "total": len(correct_answers),
+# # # # #                 "percentage": round((score / len(correct_answers)) * 100, 2),
+# # # # #                 "detailed_results": detailed
+# # # # #             }
+# # # # #         }
+
+# # # # #     except Exception as e:
+# # # # #         traceback.print_exc()
+# # # # #         return {"status": "error", "message": str(e)}
