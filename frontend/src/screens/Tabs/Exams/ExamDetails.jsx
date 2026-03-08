@@ -16,28 +16,22 @@ import { generateOMR } from "../../../services/examService";
 export default function ExamDetails({ route, navigation }) {
   const { examData } = route.params;
 
-  // 🔥 CHANGE 1: Convert backend date to Date object
-  const examDate = new Date(examData.exam_date);
-  examDate.setHours(0, 0, 0, 0);
+  // Placeholder status if needed
+  const status = "Ongoing";
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return { day: "??", month: "???" };
+    try {
+      const date = new Date(dateString);
+      const day = date.getDate();
+      const month = date.toLocaleString("en-US", { month: "short" }).toUpperCase();
+      return { day, month };
+    } catch (err) {
+      return { day: "??", month: "???" };
+    }
+  };
 
-  // 🔥 CHANGE 2: Create today date for status logic
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // 🔥 CHANGE 3: Dynamic Status Logic
-  let status = "";
-
-  if (examDate > today) {
-    status = "Incoming";
-  } else if (examDate.getTime() === today.getTime()) {
-    status = "Ongoing";
-  } else {
-    status = "Completed";
-  }
-
-  // 🔥 CHANGE 4: Use student_count instead of questions
-  const progress = 0;
-  const total = examData.student_count || 1;
+  const { day, month } = formatDate(examData.exam_date);
 
   //   const openAnswerKey = async () => {
   //   const token = await AsyncStorage.getItem("token");
@@ -61,82 +55,58 @@ export default function ExamDetails({ route, navigation }) {
   };
 
   const downloadOMR = async () => {
-  try {
-    const response = await generateOMR(examData.id);
+    try {
+      const response = await generateOMR(examData.id);
 
-    const fileUri = FileSystem.documentDirectory + "OMR.pdf";
+      const fileUri = FileSystem.documentDirectory + "OMR.pdf";
 
-    const reader = new FileReader();
+      const reader = new FileReader();
 
-    reader.onload = async () => {
-      const base64 = reader.result.split(",")[1];
+      reader.onload = async () => {
+        const base64 = reader.result.split(",")[1];
 
-      await FileSystem.writeAsStringAsync(fileUri, base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
 
-      await Sharing.shareAsync(fileUri);
-    };
+        await Sharing.shareAsync(fileUri);
+      };
 
-    reader.readAsDataURL(response.data);
-  } catch (error) {
-    console.log("Download error:", error);
-  }
-};
+      reader.readAsDataURL(response.data);
+    } catch (error) {
+      console.log("Download error:", error);
+    }
+  };
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Exams Details</Text>
 
       {/* Exam Card */}
       <View style={styles.card}>
-        {/* 🔥 CHANGE 5: Replace old date with formatted backend date */}
         <View style={styles.dateBox}>
-          <Text style={styles.dateText}>{examDate.getDate()}</Text>
-          <Text style={styles.dateText}>
-            {examDate.toLocaleString("default", { month: "short" })}
-          </Text>
+          <View style={styles.dateInner}>
+            <Text style={styles.dateDay}>{day}</Text>
+            <Text style={styles.dateMonth}>{month}</Text>
+          </View>
         </View>
 
-        {/* Middle */}
         <View style={styles.middle}>
-          {/* 🔥 CHANGE 6: Replace title with exam_name */}
           <Text style={styles.title}>{examData.exam_name}</Text>
-
-          {/* 🔥 CHANGE 7: Replace ? questions with student_count */}
-          <Text style={styles.questions}>👥 {examData.student_count}</Text>
+          <Text style={styles.questions}>👥 {examData.student_count || 0} students</Text>
         </View>
 
-        {/* Right */}
         <View style={styles.right}>
-          {/* 🔥 CHANGE 8: Replace examData.status with calculated status */}
           <View style={styles.statusBadge}>
             <Text>{status}</Text>
           </View>
 
-          {/* 🔥 CHANGE 9: Replace class with class_name */}
           <View style={styles.courseBadge}>
-            <Text style={{ color: "#fff" }}>
-              {examData.class_name.toUpperCase()}
-            </Text>
+            <Text style={{ color: "#fff" }}>{examData.class_name}</Text>
           </View>
         </View>
       </View>
 
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBackground}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${(progress / total) * 100}%` },
-            ]}
-          />
-        </View>
-
-        <Text style={styles.progressText}>
-          {progress}/{total}
-        </Text>
-      </View>
+      {/* Progress section removed as it was not part of original design */}
 
       {/* Generate Button */}
       <TouchableOpacity style={styles.generateBtn} onPress={downloadOMR}>
@@ -147,24 +117,24 @@ export default function ExamDetails({ route, navigation }) {
       <View style={styles.grid}>
         <TouchableOpacity
           style={styles.optionBox}
-          onPress={() =>
-            // navigation.navigate("AnswerKey", {
-            //   subjects: examData.subjects,
-            //   totalSets: 2,
-            // })
-            // navigation.navigate("AnswerKey", {
-            //   subjects: examData.subjects || [],
-            //   totalSets: 2,
-            //   examId: examData.id,
-            // })
-            openAnswerKey()
-          }
+          onPress={openAnswerKey}
         >
           <View style={styles.circle} />
           <Text style={styles.optionText}>Answer Key</Text>
         </TouchableOpacity>
 
-        {renderOption("Scan Sheet")}
+        <TouchableOpacity
+          style={styles.optionBox}
+          onPress={() =>
+            navigation.navigate("OMRScanner", {
+              examId: examData.id,
+              totalPages: examData.total_pages || 1,
+            })
+          }
+        >
+          <View style={styles.circle} />
+          <Text style={styles.optionText}>Scan Sheet</Text>
+        </TouchableOpacity>
         {renderOption("Download Excel")}
         {renderOption("Analysis")}
       </View>
@@ -207,14 +177,27 @@ const styles = StyleSheet.create({
 
   dateBox: {
     backgroundColor: "#ddd",
-    padding: 12,
-    alignItems: "center",
+    paddingVertical: 12,
     width: width * 0.18,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  dateText: {
+  dateInner: {
+    alignItems: "center",
+  },
+
+  dateDay: {
+    fontSize: 24,
     fontWeight: "bold",
-    fontSize: 16,
+    color: "#222",
+  },
+
+  dateMonth: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#555",
+    marginTop: -2,
   },
 
   middle: {
@@ -240,20 +223,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 20,
+    borderRadius: 5,
     marginBottom: 8,
-
-    minWidth: 90, // ✅ ensures equal width
-    alignItems: "center", // ✅ center text
   },
 
   courseBadge: {
     backgroundColor: "#9e9e9e",
     paddingHorizontal: 15,
     paddingVertical: 6,
-    borderRadius: 20, // 🔥 changed from 5 to 20 for professional pill look
-    minWidth: 90, // ✅ equal width with status
-    alignItems: "center",
+    borderRadius: 5,
   },
 
   progressContainer: {
