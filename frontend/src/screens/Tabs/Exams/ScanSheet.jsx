@@ -197,16 +197,28 @@ export default function OMRScanner({ route, navigation }) {
       {/* Scan frame overlay */}
       <View style={styles.frameContainer}>
         <View style={styles.frame}>
-          {/* Corner accents */}
-          <View style={[styles.corner, styles.cornerTL]} />
-          <View style={[styles.corner, styles.cornerTR]} />
-          <View style={[styles.corner, styles.cornerBL]} />
-          <View style={[styles.corner, styles.cornerBR]} />
+          {/* Large Guide Squares - To align with OMR sheet corner markers */}
+          <View style={[styles.corner, styles.cornerTL]}>
+             <View style={styles.cornerInner} />
+          </View>
+          <View style={[styles.corner, styles.cornerTR]}>
+             <View style={styles.cornerInner} />
+          </View>
+          <View style={[styles.corner, styles.cornerBL]}>
+             <View style={styles.cornerInner} />
+          </View>
+          <View style={[styles.corner, styles.cornerBR]}>
+             <View style={styles.cornerInner} />
+          </View>
+
           {!allCaptured && (
-            <Text style={styles.frameHint}>
-              Align OMR sheet inside the frame
-            </Text>
+            <View style={styles.hintContainer}>
+              <Text style={styles.frameHint}>
+                Place OMR markers inside blue squares
+              </Text>
+            </View>
           )}
+
           {allCaptured && (
             <View style={styles.frameReady}>
               <Text style={styles.frameReadyIcon}>✓</Text>
@@ -244,7 +256,9 @@ export default function OMRScanner({ route, navigation }) {
           onPress={captureSheet}
           disabled={allCaptured}
         >
-          <View style={styles.captureBtnInner} />
+          <View style={styles.captureBtnInner}>
+             <View style={styles.captureBtnDot} />
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -453,32 +467,44 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   frame: {
-    width: SW * 0.82,
-    // height: SW * 1.1,
-    height: SW * 1.34,
+    width: SW * 0.85,
+    height: SW * 1.20,
     justifyContent: "center",
     alignItems: "center",
   },
   corner: {
     position: "absolute",
-    width: 24,
-    height: 24,
-    borderColor: "#FF6B35",
-    borderWidth: 3,
+    width: 75,
+    height: 75,
+    borderColor: "#3b82f6", // Blue guide color
+    borderWidth: 2.5,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 8,
   },
-  cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
-  cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
-  cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
-  cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
+  cornerInner: {
+    width: "40%",
+    height: "40%",
+    backgroundColor: "rgba(59, 130, 246, 0.1)", // Very light blue tint
+    borderRadius: 2,
+  },
+  cornerTL: { top: 0, left: 0 },
+  cornerTR: { top: 0, right: 0 },
+  cornerBL: { bottom: 0, left: 0 },
+  cornerBR: { bottom: 0, right: 0 },
+  hintContainer: {
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
   frameHint: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: 13,
-    fontWeight: "500",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
     textAlign: "center",
-    backgroundColor: "rgba(0,0,0,0.45)",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
   },
   frameReady: { alignItems: "center" },
   frameReadyIcon: { fontSize: 40, color: "#4ECDC4" },
@@ -558,6 +584,14 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 27,
     backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  captureBtnDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#3b82f6",
   },
   evalBtn: {
     backgroundColor: "#FF6B35",

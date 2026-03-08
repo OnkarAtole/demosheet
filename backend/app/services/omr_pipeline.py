@@ -27,6 +27,7 @@ from __future__ import annotations
 import math
 import os
 import traceback
+import itertools
 import logging
 from typing import Dict, List, Optional, Tuple
 
@@ -123,7 +124,7 @@ def normalize_lighting(img: np.ndarray) -> np.ndarray:
 
 
 # ─────────────────────────────────────────────────────────────
-# STAGE 4 — Paper / sheet detection
+# STAGE 4 — Paper / sheet detection (distance-robust)
 # ─────────────────────────────────────────────────────────────
 
 def _order_corners(pts: np.ndarray) -> np.ndarray:
@@ -131,8 +132,10 @@ def _order_corners(pts: np.ndarray) -> np.ndarray:
     Order 4 points as [top-left, top-right, bottom-right, bottom-left].
     """
     rect = np.zeros((4, 2), dtype="float32")
+    # pts shape is (4, 2)
     s = pts.sum(axis=1)
     diff = np.diff(pts, axis=1)
+    
     rect[0] = pts[np.argmin(s)]    # top-left
     rect[2] = pts[np.argmax(s)]    # bottom-right
     rect[1] = pts[np.argmin(diff)] # top-right
@@ -140,42 +143,190 @@ def _order_corners(pts: np.ndarray) -> np.ndarray:
     return rect
 
 
-def detect_paper(blurred_gray: np.ndarray,
-                  original_img: np.ndarray) -> Optional[np.ndarray]:
+def _is_valid_quadrilateral(pts: np.ndarray, img_h: int, img_w: int) -> bool:
     """
-    Detect the 4 corner markers (black squares) to find the OMR sheet bounds.
-    Returns the ordered 4x2 float32 corner array or None.
+    Sanity-check for OMR-sheet rectangle.
     """
-    thresh = cv2.adaptiveThreshold(
-        blurred_gray, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY_INV,
-        51, 10
-    )
-
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    squares = []
+    if len(pts) != 4:
+        return False
+        
+    ordered = _order_corners(pts)
     
+    # 1. Bounds check
+    for p in ordered:
+        if not (-10 <= p[0] <= img_w + 10 and -10 <= p[1] <= img_h + 10):
+            return False
+
+    # 2. Area check (Relative to image)
+    # Using 0.05 (5%) to allow very distant captures
+    quad_area = cv2.contourArea(ordered.astype(np.int32))
+    img_area = img_h * img_w
+    if quad_area < img_area * 0.05:
+        return False
+
+    # 3. Aspect Ratio check
+    w1 = np.linalg.norm(ordered[0] - ordered[1])
+    w2 = np.linalg.norm(ordered[2] - ordered[3])
+    h1 = np.linalg.norm(ordered[0] - ordered[3])
+    h2 = np.linalg.norm(ordered[1] - ordered[2])
+    avg_w = (w1 + w2) / 2
+    avg_h = (h1 + h2) / 2
+    
+    if avg_h == 0: return False
+    aspect = avg_w / avg_h
+    # OMR is usually portrait (~0.7) or landscape (~1.4). Allow 0.4 to 2.5
+    if not (0.35 <= aspect <= 2.8):
+        return False
+
+    return True
+
+
+def _find_square_markers(thresh: np.ndarray, min_area: int) -> list:
+    """
+    Find square-like contours. Returns list of (area, x, y, contour).
+    """
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    candidates = []
     for c in contours:
         area = cv2.contourArea(c)
-        if area > 400:
-            x, y, w, h = cv2.boundingRect(c)
-            aspect = w / float(h)
-            if 0.75 <= aspect <= 1.25:
-                hull = cv2.convexHull(c)
-                hull_area = cv2.contourArea(hull)
-                if hull_area > 0 and (area / hull_area) > 0.8:
-                    squares.append((area, x + w // 2, y + h // 2))
+        if area < min_area:
+            continue
+            
+        # Aspect ratio of the marker itself
+        x, y, w, h = cv2.boundingRect(c)
+        aspect = w / float(h) if h > 0 else 0
+        # Relaxed aspect ratio for markers (perspective makes squares look like rectangles)
+        if not (0.4 <= aspect <= 2.5):
+            continue
+            
+        # Solidity check
+        hull = cv2.convexHull(c)
+        hull_area = cv2.contourArea(hull)
+        if hull_area > 0 and (area / hull_area) > 0.7:
+            candidates.append({"area": area, "center": (x + w // 2, y + h // 2), "contour": c})
+            
+    return candidates
 
-    if len(squares) >= 4:
-        squares.sort(key=lambda s: s[0], reverse=True)
-        top_4 = squares[:4]
-        markers = [(pt[1], pt[2]) for pt in top_4]
-        pts = np.array(markers, dtype="float32")
-        return _order_corners(pts)
 
-    logger.warning("detect_paper: Found %d square markers, expected 4.", len(squares))
+def _get_best_4_markers(candidates: list, img_h: int, img_w: int) -> Optional[np.ndarray]:
+    """
+    If multiple markers found, pick the 4 that best form a large rectangle.
+    """
+    if len(candidates) < 4:
+        return None
+        
+    # Sort by area descending
+    candidates.sort(key=lambda x: x["area"], reverse=True)
+    
+    # Try combinations of the top 10 candidates
+    import itertools
+    best_pts = None
+    max_score = -1
+    
+    top_n = candidates[:min(len(candidates), 10)]
+    for quad_indices in itertools.combinations(range(len(top_n)), 4):
+        subset = [top_n[i] for i in quad_indices]
+        pts = np.array([s["center"] for s in subset], dtype="float32")
+        
+        if _is_valid_quadrilateral(pts, img_h, img_w):
+            # Scoring: Area of combination * Similarity of marker areas
+            area = cv2.contourArea(_order_corners(pts).astype(np.int32))
+            
+            marker_areas = [s["area"] for s in subset]
+            area_var = np.std(marker_areas) / (np.mean(marker_areas) + 1e-6)
+            
+            # Score favors large area and low variance in marker sizes
+            score = area * (1.0 / (1.0 + area_var))
+            
+            if score > max_score:
+                max_score = score
+                best_pts = pts
+                
+    return best_pts
+
+
+def _find_largest_quad(gray: np.ndarray,
+                       img_h: int, img_w: int) -> Optional[np.ndarray]:
+    """
+    Fallback: find the largest 4-sided contour that looks like an OMR sheet.
+    Used when corner markers can't be found (e.g. distance capture).
+    """
+    # Try multiple threshold methods
+    methods = []
+
+    # Method 1: Canny edge detection
+    edges = cv2.Canny(gray, 30, 120)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    edges = cv2.dilate(edges, kernel, iterations=2)
+    methods.append(edges)
+
+    # Method 2: Otsu thresholding
+    _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    methods.append(otsu)
+
+    best_quad = None
+    best_area = 0
+
+    for binary in methods:
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL,
+                                        cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+        for c in contours[:10]:  # Only check the 10 largest
+            area = cv2.contourArea(c)
+            if area < img_h * img_w * 0.05:
+                continue
+
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+
+            if len(approx) == 4:
+                pts = approx.reshape(4, 2).astype("float32")
+                if _is_valid_quadrilateral(pts, img_h, img_w) and area > best_area:
+                    best_quad = pts
+                    best_area = area
+
+    return best_quad
+
+
+def detect_paper(blurred_gray: np.ndarray, original_img: np.ndarray) -> Optional[np.ndarray]:
+    """Robust multi-strategy paper detection."""
+    img_h, img_w = blurred_gray.shape[:2]
+    
+    # 1. Dynamic area threshold
+    # For a 1600px image, marker is usually ~1000px area.
+    # At extreme distance, it might be 100px.
+    dynamic_min_area = max(60, int((img_w * 0.005) ** 2))
+    
+    # Strategy A: Adaptive Thresholding
+    thresh_adp = cv2.adaptiveThreshold(
+        blurred_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY_INV, 51, 10
+    )
+    candidates = _find_square_markers(thresh_adp, dynamic_min_area)
+    
+    best_pts = _get_best_4_markers(candidates, img_h, img_w)
+    if best_pts is not None:
+        logger.info("detect_paper: Found via Adaptive Markers (count: %d)", len(candidates))
+        return _order_corners(best_pts)
+
+    # Strategy B: Otsu Thresholding (better for high contrast)
+    _, thresh_otsu = cv2.threshold(blurred_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    candidates_otsu = _find_square_markers(thresh_otsu, dynamic_min_area)
+    
+    best_pts = _get_best_4_markers(candidates_otsu, img_h, img_w)
+    if best_pts is not None:
+        logger.info("detect_paper: Found via Otsu Markers (count: %d)", len(candidates_otsu))
+        return _order_corners(best_pts)
+
+    # Strategy C: Global Edge Quad Fallback
+    logger.info("detect_paper: Falling back to Largest Quad strategy")
+    quad = _find_largest_quad(blurred_gray, img_h, img_w)
+    if quad is not None:
+        return _order_corners(quad)
+
     return None
+
 
 # ─────────────────────────────────────────────────────────────
 # STAGE 5 — Perspective transform
@@ -555,37 +706,55 @@ def scan_omr_page(image_bytes: bytes,
 
     try:
         img = decode_image(image_bytes)
+        logger.info("Input image: %dx%d", img.shape[1], img.shape[0])
+
         score, is_blurry = detect_blur(img)
         result["blur_score"] = score
-        
+        logger.info("Blur score: %.1f (blurry=%s)", score, is_blurry)
+
         # Stages
         blurred_gray = normalize_lighting(img)
+
         corners = detect_paper(blurred_gray, img)
         if corners is not None:
+            logger.info("Paper detected — corners: %s", corners.tolist())
             warped = perspective_transform(img, corners)
+            logger.info("Warped size (before normalize): %dx%d",
+                        warped.shape[1], warped.shape[0])
         else:
+            logger.warning("Paper detection FAILED — using full camera frame as fallback")
+            # Save a debug image showing what detection saw
+            cv2.imwrite("contour_debug.png", img)
             warped = img
 
         # ── CRITICAL: Normalize to a canonical width ──────────────
         # Without this, images captured from far away produce tiny
         # bubbles that fall below BUBBLE_AREA_MIN and get rejected.
         warped = normalize_warped_size(warped, CANONICAL_WIDTH)
+        logger.info("Warped size (after normalize): %dx%d",
+                    warped.shape[1], warped.shape[0])
 
         warped = gamma_correction(warped, GAMMA)
         warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
         thresh = dual_threshold(warped_gray)
-        
+
         cv2.imwrite("thresh_debug.png", thresh)
         cv2.imwrite("warped_debug.png", warped)
 
         bubbles = detect_bubbles(thresh)
         result["bubble_count"] = len(bubbles)
+        logger.info("Bubbles detected: %d", len(bubbles))
+
         if not bubbles:
+            logger.warning("No bubbles detected — returning empty result")
+            # Still write debug image for diagnosis
+            cv2.imwrite(debug_path, warped)
             return result
 
         dyn_threshold = _compute_dynamic_threshold([b["f"] for b in bubbles])
         result["dyn_threshold"] = dyn_threshold
-        
+        logger.info("Dynamic threshold: %.4f", dyn_threshold)
+
         h_img, w_img = warped.shape[:2]
         # Answers
         answers = detect_answers(bubbles, warped.shape[1], warped.shape[0], dyn_threshold)
@@ -604,8 +773,13 @@ def scan_omr_page(image_bytes: bytes,
         cv2.imwrite(debug_path, debug_img)
         logger.info("Debug image written to %s", debug_path)
 
+        non_empty = sum(1 for v in answers.values() if v != "EMPTY")
+        logger.info("Scan complete: roll=%s set=%s answers=%d/%d non-empty",
+                    roll, exam_set, non_empty, len(answers))
+
     except Exception as e:
         logger.error("scan_omr_page failed: %s", traceback.format_exc())
         result["error"] = str(e)
 
     return result
+
