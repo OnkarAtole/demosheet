@@ -546,7 +546,7 @@ def detect_answers(bubbles: List[BubbleInfo],
             row = sorted(mapped_rows.get(current_q, []), key=lambda b: b["x"])
 
             real_bubbles = [b for b in row if b.get("x", 0) > 0]
-            if 1 < len(real_bubbles) < 4:
+            if 0 < len(real_bubbles) < 4:
                 roi_x_min, roi_width = x_min, (x_max - x_min)
                 expected_xs = [roi_x_min + (f * roi_width) for f in [0.12, 0.38, 0.62, 0.88]]
                 padded_row = []
@@ -554,11 +554,12 @@ def detect_answers(bubbles: List[BubbleInfo],
                     closest = next((b for b in row if abs(b["x"]-exp_x) < roi_width*0.15), None)
                     padded_row.append(closest if closest else {"x": int(exp_x), "f": 0.0, "r": 12})
                 row = padded_row
-            elif len(real_bubbles) <= 1:
+            elif len(real_bubbles) == 0:
                 row = [{"x": 0, "f": 0.0}] * 4
 
             row = row[-4:]
             ratios = [b.get("f", 0.0) for b in row]
+
             max_idx = int(np.argmax(ratios))
             top, sorted_r = ratios[max_idx], sorted(ratios, reverse=True)
             second  = sorted_r[1] if len(sorted_r) > 1 else 0.0

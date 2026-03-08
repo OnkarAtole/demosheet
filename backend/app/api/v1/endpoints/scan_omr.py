@@ -113,8 +113,8 @@ async def scan_omr(
         )
 
         correct_answers: dict = {
-            str(i + 1): row.correct_option.strip().upper()
-            for i, row in enumerate(answer_key_rows)
+            str(row.question_key).strip(): row.correct_option.strip().upper()
+            for row in answer_key_rows
         }
 
         # ── 5. Grade ─────────────────────────────────────────────────
@@ -127,9 +127,11 @@ async def scan_omr(
         logger.info("Roll: %s  Set: %s  Ans-key questions: %d",
                     roll_number, exam_set, len(correct_answers))
 
-        for q_num in range(1, len(correct_answers) + 1):
-            q_str   = str(q_num)
-            correct = correct_answers.get(q_str)
+        # We grade based on the existance of keys in correct_answers
+        all_q_keys = sorted(correct_answers.keys(), key=lambda x: int(x) if x.isdigit() else x)
+
+        for q_str in all_q_keys:
+            correct = correct_answers[q_str]
             student = final_answers.get(q_str, "EMPTY")
 
             if student == correct:

@@ -197,24 +197,24 @@ export default function OMRScanner({ route, navigation }) {
       {/* Scan frame overlay */}
       <View style={styles.frameContainer}>
         <View style={styles.frame}>
-          {/* Large Guide Squares - To align with OMR sheet corner markers */}
-          <View style={[styles.corner, styles.cornerTL]}>
-             <View style={styles.cornerInner} />
+          {/* Guide squares - sized to help maintain proper capture distance */}
+          <View style={[styles.guideBox, styles.cornerTL]}>
+             <View style={styles.guideHole} />
           </View>
-          <View style={[styles.corner, styles.cornerTR]}>
-             <View style={styles.cornerInner} />
+          <View style={[styles.guideBox, styles.cornerTR]}>
+             <View style={styles.guideHole} />
           </View>
-          <View style={[styles.corner, styles.cornerBL]}>
-             <View style={styles.cornerInner} />
+          <View style={[styles.guideBox, styles.cornerBL]}>
+             <View style={styles.guideHole} />
           </View>
-          <View style={[styles.corner, styles.cornerBR]}>
-             <View style={styles.cornerInner} />
+          <View style={[styles.guideBox, styles.cornerBR]}>
+             <View style={styles.guideHole} />
           </View>
 
           {!allCaptured && (
-            <View style={styles.hintContainer}>
+            <View style={styles.guideHintOuter}>
               <Text style={styles.frameHint}>
-                Place OMR markers inside blue squares
+                Fit sheet markers inside the blue squares
               </Text>
             </View>
           )}
@@ -256,9 +256,7 @@ export default function OMRScanner({ route, navigation }) {
           onPress={captureSheet}
           disabled={allCaptured}
         >
-          <View style={styles.captureBtnInner}>
-             <View style={styles.captureBtnDot} />
-          </View>
+          <View style={styles.captureBtnInner} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -467,36 +465,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   frame: {
-    width: SW * 0.85,
-    height: SW * 1.20,
+    width: SW * 0.90,
+    height: SW * 1.25,
     justifyContent: "center",
     alignItems: "center",
   },
-  corner: {
+  guideBox: {
     position: "absolute",
-    width: 75,
-    height: 75,
-    borderColor: "#3b82f6", // Blue guide color
-    borderWidth: 2.5,
+    width: 85,
+    height: 85,
+    borderColor: "#3b82f6",
+    borderWidth: 3,
+    borderRadius: 6,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 8,
   },
-  cornerInner: {
-    width: "40%",
-    height: "40%",
-    backgroundColor: "rgba(59, 130, 246, 0.1)", // Very light blue tint
+  guideHole: {
+    width: 34,
+    height: 34,
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
     borderRadius: 2,
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.4)",
   },
   cornerTL: { top: 0, left: 0 },
   cornerTR: { top: 0, right: 0 },
   cornerBL: { bottom: 0, left: 0 },
   cornerBR: { bottom: 0, right: 0 },
-  hintContainer: {
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 20,
+  guideHintOuter: {
+    backgroundColor: "rgba(0,0,0,0.65)",
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 30,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
   },
@@ -584,14 +584,6 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 27,
     backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  captureBtnDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#3b82f6",
   },
   evalBtn: {
     backgroundColor: "#FF6B35",
