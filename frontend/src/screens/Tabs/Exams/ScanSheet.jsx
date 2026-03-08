@@ -1,3 +1,6 @@
+
+
+
 import React, { useRef, useState } from "react";
 import {
   View,
@@ -15,9 +18,9 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
-
+import { scanOMR } from "../../../services/omrService";
 const { width: SW } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.1.11:8000";
+
 
 // ─────────────────────────────────────────────
 // MAIN SCREEN — Camera + Capture + Evaluate
@@ -81,9 +84,24 @@ export default function OMRScanner({ route, navigation }) {
 
       const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
 
+      const cropWidth = photo.width * 0.85;
+      const cropHeight = photo.height * 0.90;
+      const cropX = photo.width * 0.075;
+      const cropY = photo.height * 0.05;
+
       const processed = await ImageManipulator.manipulateAsync(
         photo.uri,
-        [{ resize: { width: 1400 } }],
+        [
+          {
+            crop: {
+              originX: cropX,
+              originY: cropY,
+              width: cropWidth,
+              height: cropHeight,
+            },
+          },
+          { resize: { width: 1400 } },
+        ],
         { compress: 0.92, format: ImageManipulator.SaveFormat.JPEG }
       );
 
@@ -96,55 +114,47 @@ export default function OMRScanner({ route, navigation }) {
 
   // ── Evaluate ─────────────────────────────────
   const evaluateSheet = async () => {
-    if (loading) return;
-    if (images.length !== Number(totalPages)) {
+  if (loading) return;
+
+  if (images.length !== Number(totalPages)) {
+    Alert.alert(
+      "Incomplete",
+      `Please capture all ${totalPages} page(s).\n\nCaptured: ${images.length}/${totalPages}`
+    );
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const result = await scanOMR(examId, images);
+
+    if (result.status !== "success") {
       Alert.alert(
-        "Incomplete",
-        `Please capture all ${totalPages} page(s) before evaluating.\n\nCaptured: ${images.length}/${totalPages}`
+        "Evaluation Failed",
+        result.detail || result.message || "Server error"
       );
       return;
     }
 
-    try {
-      setLoading(true);
+    setResult(result.data);
 
-      const formData = new FormData();
-      images.forEach((img, idx) => {
-        formData.append("files", {
-          uri: img.uri,
-          name: `omr_page_${idx + 1}.jpg`,
-          type: "image/jpeg",
-        });
-      });
-      formData.append("exam_id", String(examId));
-
-      const response = await fetch(`${API_BASE_URL}/api/v1/omr/scan-omr`, {
-        method: "POST",
-        body: formData,
-        headers: { Accept: "application/json" },
-      });
-
-      const json = await response.json();
-
-      if (!response.ok || json.status !== "success") {
-        Alert.alert("Evaluation Failed", json.detail || json.message || "Server error");
-        return;
-      }
-
-      setResult(json.data);
-    } catch (error) {
-      console.error("Fetch error:", error);
-      Alert.alert("Connection Error", `Could not reach server.\n${API_BASE_URL}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    Alert.alert(
+      "Connection Error",
+      error.response?.data?.detail || error.message || "Server not reachable"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ── Retake last photo ─────────────────────────
   const retakeLast = () => setImages((prev) => prev.slice(0, -1));
 
   const allCaptured = images.length >= Number(totalPages);
-  const progress = images.length / Number(totalPages);
+  // const progress = images.length / Number(totalPages);
+  const progress = totalPages ? images.length / totalPages : 0;
 
   return (
     <View style={styles.container}>
@@ -444,7 +454,8 @@ const styles = StyleSheet.create({
   },
   frame: {
     width: SW * 0.82,
-    height: SW * 1.1,
+    // height: SW * 1.1,
+    height: SW * 1.34,
     justifyContent: "center",
     alignItems: "center",
   },

@@ -11,3 +11,4 @@ class Result(Base):
     roll_number = Column(String)
     score = Column(Integer)
     total_questions = Column(Integer)
+

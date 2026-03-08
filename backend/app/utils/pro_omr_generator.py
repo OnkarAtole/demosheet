@@ -30,6 +30,7 @@ def generate_pro_omr(exam):
 
     row_height = 16
     bubble_radius = 6
+    bubble_spacing = 18
 
     # ================= FIRST PAGE =================
     draw_alignment_markers(c, width, height)
@@ -41,48 +42,55 @@ def generate_pro_omr(exam):
     c.drawString(60, height - 80, "Name: ______________________________")
     c.drawString(60, height - 100, "Date: ______________________________")
 
-
-# ================= EXAM SET SECTION =================
+    # ================= EXAM SET =================
     set_label_y = height - 145
     c.setFont("Helvetica-Bold", 11)
     c.drawString(60, set_label_y, "Exam Set")
 
-    set_start_x = 90
-    set_spacing = 24
+    set_start_x = 95
+    set_spacing = bubble_spacing
 
     for i in range(1, exam.exam_set + 1):
-        # Draw set number above bubble
+
+        x = set_start_x + (i - 1) * set_spacing
+
         c.setFont("Helvetica", 9)
-        c.drawCentredString(set_start_x, set_label_y - 8, str(i))
+        c.drawCentredString(x, set_label_y - 8, str(i))
 
-        # Draw bubble below number
-        draw_bubble(c, set_start_x, set_label_y - 20, bubble_radius)
-
-        set_start_x += set_spacing    
+        draw_bubble(c, x, set_label_y - 20, bubble_radius)
 
     # ================= ROLL SECTION =================
     roll_label_y = height - 185
     c.setFont("Helvetica-Bold", 11)
     c.drawString(60, roll_label_y, "Roll No")
 
-    digit_spacing = 24
     row_spacing = 18
 
-    roll_x = 70
+    # 🔥 Align roll bubbles with question bubbles
+    first_question_column = 70
+    roll_x = first_question_column + 25
+
     roll_start_y = roll_label_y - 50
 
     for digit_index in range(exam.roll_no_digit):
-        x_center = roll_x + digit_index * digit_spacing
+
+        x_center = roll_x + digit_index * bubble_spacing
+
         for num in range(10):
+
             y_center = roll_start_y - num * row_spacing
-            c.setFont("Helvetica", 8)
-            c.drawRightString(x_center - 10, y_center - 3, str(num))
+
+            if digit_index == 0:
+                c.setFont("Helvetica", 8)
+                c.drawRightString(x_center - 12, y_center - 3, str(num))
+
             draw_bubble(c, x_center, y_center, bubble_radius)
 
     roll_bottom = roll_start_y - (10 * row_spacing)
 
     # ================= QUESTION LAYOUT =================
     column_x = [70, 190, 310, 430]
+
     top_margin = height - 150
     bottom_margin = 50
 
@@ -91,34 +99,34 @@ def generate_pro_omr(exam):
     row_index = 0
 
     for subject in exam.subjects:
+
         for _ in range(subject.question_count):
 
             while True:
 
-                # Calculate Y
                 if total_pages == 1 and col_index == 0:
                     y = roll_bottom - 20 - (row_index * row_height)
                 else:
                     y = top_margin - (row_index * row_height)
 
-                # If bottom reached → move column/page
                 if y < bottom_margin:
+
                     col_index += 1
                     row_index = 0
 
-                    # If columns finished → new page
                     if col_index >= 4:
                         c.showPage()
                         total_pages += 1
                         draw_alignment_markers(c, width, height)
                         col_index = 0
 
-                    continue  # recalc y without skipping question
+                    continue
 
-                break  # valid position found
+                break
 
             x = column_x[col_index]
 
+            # 🔥 small square every 5 questions
             if q_no % 5 == 0:
                 draw_black_square(c, x - 14, y - 6, 8)
 
@@ -126,9 +134,10 @@ def generate_pro_omr(exam):
             c.drawString(x, y - 3, str(q_no))
 
             bubble_x = x + 25
+
             for _ in range(4):
                 draw_bubble(c, bubble_x, y, bubble_radius)
-                bubble_x += 18
+                bubble_x += bubble_spacing
 
             row_index += 1
             q_no += 1
@@ -148,7 +157,14 @@ def generate_pro_omr(exam):
 
 
 
-# # ##############################################working###########################################################
+
+
+
+
+
+
+
+
 
 # from reportlab.pdfgen import canvas
 # from reportlab.lib.pagesizes import A4
@@ -183,10 +199,9 @@ def generate_pro_omr(exam):
 #     row_height = 16
 #     bubble_radius = 6
 
-#     # ================= FIRST PAGE DESIGN =================
+#     # ================= FIRST PAGE =================
 #     draw_alignment_markers(c, width, height)
 
-#     # HEADER
 #     c.setFont("Helvetica-Bold", 14)
 #     c.drawCentredString(width / 2, height - 45, f"Exam: {exam.exam_name}")
 
@@ -194,12 +209,31 @@ def generate_pro_omr(exam):
 #     c.drawString(60, height - 80, "Name: ______________________________")
 #     c.drawString(60, height - 100, "Date: ______________________________")
 
+
+# # ================= EXAM SET SECTION =================
+#     set_label_y = height - 145
+#     c.setFont("Helvetica-Bold", 11)
+#     c.drawString(60, set_label_y, "Exam Set")
+
+#     set_start_x = 90
+#     set_spacing = 24
+
+#     for i in range(1, exam.exam_set + 1):
+#         # Draw set number above bubble
+#         c.setFont("Helvetica", 9)
+#         c.drawCentredString(set_start_x, set_label_y - 8, str(i))
+
+#         # Draw bubble below number
+#         draw_bubble(c, set_start_x, set_label_y - 20, bubble_radius)
+
+#         set_start_x += set_spacing    
+
 #     # ================= ROLL SECTION =================
-#     roll_label_y = height - 135
+#     roll_label_y = height - 185
 #     c.setFont("Helvetica-Bold", 11)
 #     c.drawString(60, roll_label_y, "Roll No")
 
-#     digit_spacing = 32
+#     digit_spacing = 24
 #     row_spacing = 18
 
 #     roll_x = 70
@@ -207,10 +241,8 @@ def generate_pro_omr(exam):
 
 #     for digit_index in range(exam.roll_no_digit):
 #         x_center = roll_x + digit_index * digit_spacing
-
 #         for num in range(10):
 #             y_center = roll_start_y - num * row_spacing
-
 #             c.setFont("Helvetica", 8)
 #             c.drawRightString(x_center - 10, y_center - 3, str(num))
 #             draw_bubble(c, x_center, y_center, bubble_radius)
@@ -227,36 +259,34 @@ def generate_pro_omr(exam):
 #     row_index = 0
 
 #     for subject in exam.subjects:
-
 #         for _ in range(subject.question_count):
 
-#             # First column of first page starts below roll
-#             if total_pages == 1 and col_index == 0:
-#                 y = roll_bottom - 20 - (row_index * row_height)
-#             else:
-#                 y = top_margin - (row_index * row_height)
+#             while True:
+
+#                 # Calculate Y
+#                 if total_pages == 1 and col_index == 0:
+#                     y = roll_bottom - 20 - (row_index * row_height)
+#                 else:
+#                     y = top_margin - (row_index * row_height)
+
+#                 # If bottom reached → move column/page
+#                 if y < bottom_margin:
+#                     col_index += 1
+#                     row_index = 0
+
+#                     # If columns finished → new page
+#                     if col_index >= 4:
+#                         c.showPage()
+#                         total_pages += 1
+#                         draw_alignment_markers(c, width, height)
+#                         col_index = 0
+
+#                     continue  # recalc y without skipping question
+
+#                 break  # valid position found
 
 #             x = column_x[col_index]
 
-#             # If bottom reached → move to next column
-#             if y < bottom_margin:
-#                 col_index += 1
-#                 row_index = 0
-
-#                 # If all 4 columns filled → NEW PAGE
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-
-#                     # Only alignment markers on next pages
-#                     draw_alignment_markers(c, width, height)
-
-#                     col_index = 0
-#                     row_index = 0
-
-#                 continue
-
-#             # Mini square every 5 questions
 #             if q_no % 5 == 0:
 #                 draw_black_square(c, x - 14, y - 6, 8)
 
@@ -286,128 +316,135 @@ def generate_pro_omr(exam):
 
 
 
+# # # # ##############################################working###########################################################
 
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
 
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1)
+# # #     c.circle(x, y, radius)
 
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1)
-#     c.circle(x, y, radius)
 
+# # # def draw_black_square(c, x, y, size=18):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
-# def draw_black_square(c, x, y, size=18):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
 
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 35)
+# # #     draw_black_square(c, width - 35, height - 35)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 35, 15)
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 15, height - 35)
-#     draw_black_square(c, width - 35, height - 35)
-#     draw_black_square(c, 15, 15)
-#     draw_black_square(c, width - 35, 15)
 
+# # # def generate_pro_omr(exam):
 
-# def generate_pro_omr(exam):
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # #     width, height = A4
+# # #     total_pages = 1
 
-#     width, height = A4
-#     total_pages = 1
+# # #     row_height = 16
+# # #     bubble_radius = 6
 
-#     row_height = 16
-#     bubble_radius = 6
+# # #     # ================= FIRST PAGE DESIGN =================
+# # #     draw_alignment_markers(c, width, height)
 
-#     draw_alignment_markers(c, width, height)
+# # #     # HEADER
+# # #     c.setFont("Helvetica-Bold", 14)
+# # #     c.drawCentredString(width / 2, height - 45, f"Exam: {exam.exam_name}")
 
-#     # ================= HEADER =================
-#     c.setFont("Helvetica-Bold", 14)
-#     c.drawCentredString(width / 2, height - 45, f"Exam: {exam.exam_name}")
+# # #     c.setFont("Helvetica", 10)
+# # #     c.drawString(60, height - 80, "Name: ______________________________")
+# # #     c.drawString(60, height - 100, "Date: ______________________________")
 
-#     c.setFont("Helvetica", 10)
-#     c.drawString(60, height - 80, "Name: ______________________________")
-#     c.drawString(60, height - 100, "Date: ______________________________")
+# # #     # ================= ROLL SECTION =================
+# # #     roll_label_y = height - 135
+# # #     c.setFont("Helvetica-Bold", 11)
+# # #     c.drawString(60, roll_label_y, "Roll No")
 
-#     # ================= ROLL SECTION =================
-#     roll_label_y = height - 135
-#     c.setFont("Helvetica-Bold", 11)
-#     c.drawString(60, roll_label_y, "Roll No")
+# # #     digit_spacing = 32
+# # #     row_spacing = 18
 
-#     digit_spacing = 32
-#     row_spacing = 18
+# # #     roll_x = 70
+# # #     roll_start_y = roll_label_y - 50
 
-#     roll_x = 70
-#     roll_start_y = roll_label_y - 50
+# # #     for digit_index in range(exam.roll_no_digit):
+# # #         x_center = roll_x + digit_index * digit_spacing
 
-#     for digit_index in range(exam.roll_no_digit):
-#         x_center = roll_x + digit_index * digit_spacing
+# # #         for num in range(10):
+# # #             y_center = roll_start_y - num * row_spacing
 
-#         for num in range(10):
-#             y_center = roll_start_y - num * row_spacing
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawRightString(x_center - 10, y_center - 3, str(num))
+# # #             draw_bubble(c, x_center, y_center, bubble_radius)
 
-#             c.setFont("Helvetica", 8)
-#             c.drawRightString(x_center - 10, y_center - 3, str(num))
-#             draw_bubble(c, x_center, y_center, bubble_radius)
+# # #     roll_bottom = roll_start_y - (10 * row_spacing)
 
-#     roll_bottom = roll_start_y - (10 * row_spacing)
+# # #     # ================= QUESTION LAYOUT =================
+# # #     column_x = [70, 190, 310, 430]
+# # #     top_margin = height - 150
+# # #     bottom_margin = 50
 
-#     # ================= QUESTION LAYOUT =================
+# # #     q_no = 1
+# # #     col_index = 0
+# # #     row_index = 0
 
-#     column_x = [70, 190, 310, 430]
-#     top_margin = height - 150
-#     bottom_margin = 50
+# # #     for subject in exam.subjects:
 
-#     max_rows = int((top_margin - bottom_margin) / row_height)
+# # #         for _ in range(subject.question_count):
 
-#     q_no = 1
+# # #             # First column of first page starts below roll
+# # #             if total_pages == 1 and col_index == 0:
+# # #                 y = roll_bottom - 20 - (row_index * row_height)
+# # #             else:
+# # #                 y = top_margin - (row_index * row_height)
 
-#     col_index = 0
-#     row_index = 0
+# # #             x = column_x[col_index]
 
-#     for subject in exam.subjects:
+# # #             # If bottom reached → move to next column
+# # #             if y < bottom_margin:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
-#         for _ in range(subject.question_count):
+# # #                 # If all 4 columns filled → NEW PAGE
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
 
-#             # Column 0 starts BELOW roll
-#             if col_index == 0:
-#                 y = roll_bottom - 20 - (row_index * row_height)
-#             else:
-#                 y = top_margin - (row_index * row_height)
+# # #                     # Only alignment markers on next pages
+# # #                     draw_alignment_markers(c, width, height)
 
-#             x = column_x[col_index]
+# # #                     col_index = 0
+# # #                     row_index = 0
 
-#             # If bottom reached → next column
-#             if y < bottom_margin:
-#                 col_index += 1
-#                 row_index = 0
+# # #                 continue
 
-#                 if col_index >= 4:
-#                     break
+# # #             # Mini square every 5 questions
+# # #             if q_no % 5 == 0:
+# # #                 draw_black_square(c, x - 14, y - 6, 8)
 
-#                 continue
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawString(x, y - 3, str(q_no))
 
-#             # Mini square every 5
-#             if q_no % 5 == 0:
-#                 draw_black_square(c, x - 14, y - 6, 8)
+# # #             bubble_x = x + 25
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y, bubble_radius)
+# # #                 bubble_x += 18
 
-#             c.setFont("Helvetica", 8)
-#             c.drawString(x, y - 3, str(q_no))
+# # #             row_index += 1
+# # #             q_no += 1
 
-#             bubble_x = x + 18
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y, bubble_radius)
-#                 bubble_x += 18
+# # #     c.save()
+# # #     buffer.seek(0)
 
-#             row_index += 1
-#             q_no += 1
+# # #     return buffer, total_pages
 
-#     c.save()
-#     buffer.seek(0)
 
-#     return buffer, total_pages
 
 
 
@@ -419,1307 +456,1286 @@ def generate_pro_omr(exam):
 
 
 
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
 
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1)
+# # #     c.circle(x, y, radius)
 
 
+# # # def draw_black_square(c, x, y, size=18):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
 
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 35)
+# # #     draw_black_square(c, width - 35, height - 35)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 35, 15)
 
 
+# # # def generate_pro_omr(exam):
 
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
+# # #     width, height = A4
+# # #     total_pages = 1
 
+# # #     row_height = 16
+# # #     bubble_radius = 6
 
+# # #     draw_alignment_markers(c, width, height)
 
+# # #     # ================= HEADER =================
+# # #     c.setFont("Helvetica-Bold", 14)
+# # #     c.drawCentredString(width / 2, height - 45, f"Exam: {exam.exam_name}")
 
+# # #     c.setFont("Helvetica", 10)
+# # #     c.drawString(60, height - 80, "Name: ______________________________")
+# # #     c.drawString(60, height - 100, "Date: ______________________________")
 
+# # #     # ================= ROLL SECTION =================
+# # #     roll_label_y = height - 135
+# # #     c.setFont("Helvetica-Bold", 11)
+# # #     c.drawString(60, roll_label_y, "Roll No")
 
+# # #     digit_spacing = 32
+# # #     row_spacing = 18
 
+# # #     roll_x = 70
+# # #     roll_start_y = roll_label_y - 50
 
+# # #     for digit_index in range(exam.roll_no_digit):
+# # #         x_center = roll_x + digit_index * digit_spacing
 
+# # #         for num in range(10):
+# # #             y_center = roll_start_y - num * row_spacing
 
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawRightString(x_center - 10, y_center - 3, str(num))
+# # #             draw_bubble(c, x_center, y_center, bubble_radius)
 
+# # #     roll_bottom = roll_start_y - (10 * row_spacing)
 
+# # #     # ================= QUESTION LAYOUT =================
 
+# # #     column_x = [70, 190, 310, 430]
+# # #     top_margin = height - 150
+# # #     bottom_margin = 50
 
+# # #     max_rows = int((top_margin - bottom_margin) / row_height)
 
+# # #     q_no = 1
 
+# # #     col_index = 0
+# # #     row_index = 0
 
+# # #     for subject in exam.subjects:
 
+# # #         for _ in range(subject.question_count):
 
+# # #             # Column 0 starts BELOW roll
+# # #             if col_index == 0:
+# # #                 y = roll_bottom - 20 - (row_index * row_height)
+# # #             else:
+# # #                 y = top_margin - (row_index * row_height)
 
+# # #             x = column_x[col_index]
 
+# # #             # If bottom reached → next column
+# # #             if y < bottom_margin:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
+# # #                 if col_index >= 4:
+# # #                     break
 
+# # #                 continue
 
+# # #             # Mini square every 5
+# # #             if q_no % 5 == 0:
+# # #                 draw_black_square(c, x - 14, y - 6, 8)
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawString(x, y - 3, str(q_no))
 
+# # #             bubble_x = x + 18
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y, bubble_radius)
+# # #                 bubble_x += 18
 
-# # =============================
-# # Drawing Helpers
-# # =============================
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1)
-#     c.circle(x, y, radius)
+# # #             row_index += 1
+# # #             q_no += 1
 
+# # #     c.save()
+# # #     buffer.seek(0)
 
-# def draw_black_square(c, x, y, size=12):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
+# # #     return buffer, total_pages
 
 
-# def draw_alignment_markers(c, width, height):
-#     # 4 corner markers (DO NOT REMOVE – needed for scanning)
-#     draw_black_square(c, 15, height - 35, 18)
-#     draw_black_square(c, width - 35, height - 35, 18)
-#     draw_black_square(c, 15, 15, 18)
-#     draw_black_square(c, width - 35, 15, 18)
 
 
-# # =============================
-# # MAIN FUNCTION
-# # =============================
-# def generate_pro_omr(exam):
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     width, height = A4
-#     total_pages = 1
 
-#     row_height = 16
-#     bubble_radius = 6
 
-#     # ================= FIRST PAGE HEADER =================
-#     def draw_first_page_header():
 
-#         draw_alignment_markers(c, width, height)
 
-#         c.setFont("Helvetica-Bold", 14)
-#         c.drawCentredString(width / 2, height - 45, f"Exam: {exam.exam_name}")
 
-#         c.setFont("Helvetica", 10)
-#         c.drawString(60, height - 80, "Name: ______________________________")
-#         c.drawString(60, height - 100, "Date: ______________________________")
 
-#         # -------- ROLL NUMBER SECTION --------
-#         roll_label_y = height - 135
-#         c.setFont("Helvetica-Bold", 11)
-#         c.drawString(60, roll_label_y, "Roll No")
 
-#         digit_spacing = 36   # reduced so it doesn't reach right margin
-#         row_spacing = 18
 
-#         start_x = 120        # shifted slightly right
-#         start_y = roll_label_y - 55  # extra spacing below label
 
-#         # 1️⃣ Empty digit boxes
-#         box_size = 16
-#         for i in range(exam.roll_no_digit):
-#             box_x = start_x + (i * digit_spacing) - (box_size / 2)
-#             box_y = roll_label_y - 30
-#             c.rect(box_x, box_y, box_size, box_size)
 
-#         # 2️⃣ Roll number bubble grid
-#         for digit_index in range(exam.roll_no_digit):
 
-#             x_center = start_x + (digit_index * digit_spacing)
 
-#             for num in range(10):
 
-#                 y_center = start_y - (num * row_spacing)
 
-#                 c.setFont("Helvetica", 8)
-#                 c.drawRightString(x_center - 10, y_center - 3, str(num))
 
-#                 draw_bubble(c, x_center, y_center, bubble_radius)
 
-#         # 3️⃣ Border around roll section
-#         roll_width = exam.roll_no_digit * digit_spacing + 40
-#         roll_height = (10 * row_spacing) + 40
 
-#         c.rect(90,
-#                start_y - (10 * row_spacing) - 20,
-#                roll_width,
-#                roll_height)
 
-#         return start_y - (10 * row_spacing) - 35
 
 
-#     # ================= OTHER PAGE HEADER =================
-#     def draw_other_page_header():
-#         draw_alignment_markers(c, width, height)
-#         return height - 60
 
 
-#     # Start first page
-#     top_margin = draw_first_page_header()
 
-#     bottom_margin = 50
-#     usable_height = top_margin - bottom_margin
-#     max_rows_per_column = int(usable_height / row_height)
 
-#     # Keep original UI column spacing
-#     column_x = [70, 200, 330, 460]
 
-#     number_gap = 20
-#     bubble_spacing = 18
 
-#     q_no = 1
-#     col_index = 0
-#     row_index = 0
 
-#     for subject in exam.subjects:
 
-#         # SUBJECT TITLE
-#         if row_index + 2 >= max_rows_per_column:
-#             col_index += 1
-#             row_index = 0
 
-#             if col_index >= 4:
-#                 c.showPage()
-#                 total_pages += 1
-#                 top_margin = draw_other_page_header()
-#                 usable_height = top_margin - bottom_margin
-#                 max_rows_per_column = int(usable_height / row_height)
-#                 col_index = 0
-#                 row_index = 0
 
-#         x = column_x[col_index]
-#         y = top_margin - (row_index * row_height)
 
-#         c.setFont("Helvetica-Bold", 9)
-#         c.drawString(x, y, subject.sub_name)
-#         c.line(x, y - 2, x + 110, y - 2)
 
-#         row_index += 2
 
-#         # QUESTIONS
-#         for _ in range(subject.question_count):
 
-#             if row_index >= max_rows_per_column:
-#                 col_index += 1
-#                 row_index = 0
 
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-#                     top_margin = draw_other_page_header()
-#                     usable_height = top_margin - bottom_margin
-#                     max_rows_per_column = int(usable_height / row_height)
-#                     col_index = 0
-#                     row_index = 0
 
-#             x = column_x[col_index]
-#             y = top_margin - (row_index * row_height)
 
-#             # Mini square every 5 questions (but NOT at question 1)
-#             if q_no % 5 == 0:
-#                 draw_black_square(c, x - 14, y - 5, 8)
 
-#             c.setFont("Helvetica", 8)
-#             c.drawString(x, y - 3, str(q_no))
 
-#             bubble_x = x + number_gap
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y, bubble_radius)
-#                 bubble_x += bubble_spacing
 
-#             row_index += 1
-#             q_no += 1
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-#     c.save()
-#     buffer.seek(0)
 
-#     return buffer, total_pages
+# # # # =============================
+# # # # Drawing Helpers
+# # # # =============================
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1)
+# # #     c.circle(x, y, radius)
 
 
+# # # def draw_black_square(c, x, y, size=12):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
 
+# # # def draw_alignment_markers(c, width, height):
+# # #     # 4 corner markers (DO NOT REMOVE – needed for scanning)
+# # #     draw_black_square(c, 15, height - 35, 18)
+# # #     draw_black_square(c, width - 35, height - 35, 18)
+# # #     draw_black_square(c, 15, 15, 18)
+# # #     draw_black_square(c, width - 35, 15, 18)
 
 
+# # # # =============================
+# # # # MAIN FUNCTION
+# # # # =============================
+# # # def generate_pro_omr(exam):
 
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # #     width, height = A4
+# # #     total_pages = 1
 
+# # #     row_height = 16
+# # #     bubble_radius = 6
 
-# # =============================
-# # Drawing Helpers
-# # =============================
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1)
-#     c.circle(x, y, radius)
+# # #     # ================= FIRST PAGE HEADER =================
+# # #     def draw_first_page_header():
 
+# # #         draw_alignment_markers(c, width, height)
 
-# def draw_black_square(c, x, y, size=8):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
+# # #         c.setFont("Helvetica-Bold", 14)
+# # #         c.drawCentredString(width / 2, height - 45, f"Exam: {exam.exam_name}")
 
+# # #         c.setFont("Helvetica", 10)
+# # #         c.drawString(60, height - 80, "Name: ______________________________")
+# # #         c.drawString(60, height - 100, "Date: ______________________________")
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 15, height - 30)
-#     draw_black_square(c, width - 30, height - 30)
-#     draw_black_square(c, 15, 15)
-#     draw_black_square(c, width - 30, 15)
+# # #         # -------- ROLL NUMBER SECTION --------
+# # #         roll_label_y = height - 135
+# # #         c.setFont("Helvetica-Bold", 11)
+# # #         c.drawString(60, roll_label_y, "Roll No")
 
+# # #         digit_spacing = 36   # reduced so it doesn't reach right margin
+# # #         row_spacing = 18
 
-# # =============================
-# # MAIN FUNCTION
-# # =============================
-# def generate_pro_omr(exam):
+# # #         start_x = 120        # shifted slightly right
+# # #         start_y = roll_label_y - 55  # extra spacing below label
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # #         # 1️⃣ Empty digit boxes
+# # #         box_size = 16
+# # #         for i in range(exam.roll_no_digit):
+# # #             box_x = start_x + (i * digit_spacing) - (box_size / 2)
+# # #             box_y = roll_label_y - 30
+# # #             c.rect(box_x, box_y, box_size, box_size)
 
-#     width, height = A4
-#     total_pages = 1
+# # #         # 2️⃣ Roll number bubble grid
+# # #         for digit_index in range(exam.roll_no_digit):
 
-#     row_height = 16
-#     bubble_radius = 6
+# # #             x_center = start_x + (digit_index * digit_spacing)
 
-#     # ================= FIRST PAGE HEADER =================
-#     def draw_first_page_header():
+# # #             for num in range(10):
 
-#         draw_alignment_markers(c, width, height)
+# # #                 y_center = start_y - (num * row_spacing)
 
-#         c.setFont("Helvetica-Bold", 14)
-#         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # #                 c.setFont("Helvetica", 8)
+# # #                 c.drawRightString(x_center - 10, y_center - 3, str(num))
 
-#         c.setFont("Helvetica", 10)
-#         c.drawString(60, height - 70, "Name: ______________________________")
-#         c.drawString(60, height - 90, "Date: ______________________________")
+# # #                 draw_bubble(c, x_center, y_center, bubble_radius)
 
-#         # -------- ROLL NUMBER SECTION --------
-#         roll_top = height - 120
-#         c.setFont("Helvetica-Bold", 11)
-#         c.drawString(60, roll_top, "Roll No")
+# # #         # 3️⃣ Border around roll section
+# # #         roll_width = exam.roll_no_digit * digit_spacing + 40
+# # #         roll_height = (10 * row_spacing) + 40
 
-#         digit_spacing = 45
-#         row_spacing = 18
+# # #         c.rect(90,
+# # #                start_y - (10 * row_spacing) - 20,
+# # #                roll_width,
+# # #                roll_height)
 
-#         start_x = 90
-#         start_y = roll_top - 35
+# # #         return start_y - (10 * row_spacing) - 35
 
-#         # 1️⃣ Empty boxes above roll grid
-#         box_size = 16
-#         for i in range(exam.roll_no_digit):
-#             box_x = start_x + (i * digit_spacing) - 8
-#             box_y = roll_top - 15
-#             c.rect(box_x, box_y, box_size, box_size)
 
-#         # 2️⃣ Roll number grid
-#         for digit_index in range(exam.roll_no_digit):
+# # #     # ================= OTHER PAGE HEADER =================
+# # #     def draw_other_page_header():
+# # #         draw_alignment_markers(c, width, height)
+# # #         return height - 60
 
-#             x_center = start_x + (digit_index * digit_spacing)
 
-#             for num in range(10):
+# # #     # Start first page
+# # #     top_margin = draw_first_page_header()
 
-#                 y_center = start_y - (num * row_spacing)
+# # #     bottom_margin = 50
+# # #     usable_height = top_margin - bottom_margin
+# # #     max_rows_per_column = int(usable_height / row_height)
 
-#                 # Number LEFT aligned to bubble
-#                 c.setFont("Helvetica", 8)
-#                 c.drawRightString(x_center - 12, y_center - 3, str(num))
+# # #     # Keep original UI column spacing
+# # #     column_x = [70, 200, 330, 460]
 
-#                 # Bubble
-#                 draw_bubble(c, x_center, y_center, bubble_radius)
+# # #     number_gap = 20
+# # #     bubble_spacing = 18
 
-#         # 3️⃣ Separator square at right edge
-#         separator_x = start_x + (exam.roll_no_digit * digit_spacing) + 10
-#         separator_y = start_y - (4 * row_spacing)
-#         draw_black_square(c, separator_x, separator_y, 10)
+# # #     q_no = 1
+# # #     col_index = 0
+# # #     row_index = 0
 
-#         return start_y - (10 * row_spacing) - 30
+# # #     for subject in exam.subjects:
 
+# # #         # SUBJECT TITLE
+# # #         if row_index + 2 >= max_rows_per_column:
+# # #             col_index += 1
+# # #             row_index = 0
 
-#     # ================= OTHER PAGE HEADER =================
-#     def draw_other_page_header():
-#         draw_alignment_markers(c, width, height)
-#         return height - 60
+# # #             if col_index >= 4:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 top_margin = draw_other_page_header()
+# # #                 usable_height = top_margin - bottom_margin
+# # #                 max_rows_per_column = int(usable_height / row_height)
+# # #                 col_index = 0
+# # #                 row_index = 0
 
+# # #         x = column_x[col_index]
+# # #         y = top_margin - (row_index * row_height)
 
-#     # Start first page
-#     top_margin = draw_first_page_header()
+# # #         c.setFont("Helvetica-Bold", 9)
+# # #         c.drawString(x, y, subject.sub_name)
+# # #         c.line(x, y - 2, x + 110, y - 2)
 
-#     bottom_margin = 50
-#     usable_height = top_margin - bottom_margin
-#     max_rows_per_column = usable_height // row_height
+# # #         row_index += 2
 
-#     column_x = [70, 200, 330, 460]
+# # #         # QUESTIONS
+# # #         for _ in range(subject.question_count):
 
-#     number_gap = 20
-#     bubble_spacing = 18
+# # #             if row_index >= max_rows_per_column:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
-#     q_no = 1
-#     col_index = 0
-#     row_index = 0
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     top_margin = draw_other_page_header()
+# # #                     usable_height = top_margin - bottom_margin
+# # #                     max_rows_per_column = int(usable_height / row_height)
+# # #                     col_index = 0
+# # #                     row_index = 0
 
-#     for subject in exam.subjects:
+# # #             x = column_x[col_index]
+# # #             y = top_margin - (row_index * row_height)
 
-#         # SUBJECT TITLE
-#         if row_index + 2 >= max_rows_per_column:
-#             col_index += 1
-#             row_index = 0
+# # #             # Mini square every 5 questions (but NOT at question 1)
+# # #             if q_no % 5 == 0:
+# # #                 draw_black_square(c, x - 14, y - 5, 8)
 
-#             if col_index >= 4:
-#                 c.showPage()
-#                 total_pages += 1
-#                 top_margin = draw_other_page_header()
-#                 usable_height = top_margin - bottom_margin
-#                 max_rows_per_column = usable_height // row_height
-#                 col_index = 0
-#                 row_index = 0
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawString(x, y - 3, str(q_no))
 
-#         x = column_x[col_index]
-#         y = top_margin - (row_index * row_height)
+# # #             bubble_x = x + number_gap
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y, bubble_radius)
+# # #                 bubble_x += bubble_spacing
 
-#         c.setFont("Helvetica-Bold", 9)
-#         c.drawString(x, y, subject.sub_name)
-#         c.line(x, y - 2, x + 110, y - 2)
+# # #             row_index += 1
+# # #             q_no += 1
 
-#         row_index += 2
+# # #     c.save()
+# # #     buffer.seek(0)
 
-#         # QUESTIONS
-#         for _ in range(subject.question_count):
+# # #     return buffer, total_pages
 
-#             if row_index >= max_rows_per_column:
-#                 col_index += 1
-#                 row_index = 0
 
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-#                     top_margin = draw_other_page_header()
-#                     usable_height = top_margin - bottom_margin
-#                     max_rows_per_column = usable_height // row_height
-#                     col_index = 0
-#                     row_index = 0
 
-#             x = column_x[col_index]
-#             y = top_margin - (row_index * row_height)
 
-#             if (q_no - 1) % 5 == 0:
-#                 draw_black_square(c, x - 14, y - 5, 6)
 
-#             c.setFont("Helvetica", 8)
-#             c.drawString(x, y - 3, str(q_no))
 
-#             bubble_x = x + number_gap
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y, bubble_radius)
-#                 bubble_x += bubble_spacing
 
-#             row_index += 1
-#             q_no += 1
 
-#     c.save()
-#     buffer.seek(0)
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-#     return buffer, total_pages
 
+# # # # =============================
+# # # # Drawing Helpers
+# # # # =============================
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1)
+# # #     c.circle(x, y, radius)
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
 
+# # # def draw_black_square(c, x, y, size=8):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
-# # =============================
-# # Drawing Helpers
-# # =============================
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1)
-#     c.circle(x, y, radius)
 
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 30)
+# # #     draw_black_square(c, width - 30, height - 30)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 30, 15)
 
-# def draw_black_square(c, x, y, size=8):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
 
+# # # # =============================
+# # # # MAIN FUNCTION
+# # # # =============================
+# # # def generate_pro_omr(exam):
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 15, height - 30)
-#     draw_black_square(c, width - 30, height - 30)
-#     draw_black_square(c, 15, 15)
-#     draw_black_square(c, width - 30, 15)
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
+# # #     width, height = A4
+# # #     total_pages = 1
 
-# # =============================
-# # MAIN FUNCTION
-# # =============================
-# def generate_pro_omr(exam):
+# # #     row_height = 16
+# # #     bubble_radius = 6
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # #     # ================= FIRST PAGE HEADER =================
+# # #     def draw_first_page_header():
 
-#     width, height = A4
-#     total_pages = 1
+# # #         draw_alignment_markers(c, width, height)
 
-#     row_height = 16
-#     bubble_radius = 6
+# # #         c.setFont("Helvetica-Bold", 14)
+# # #         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#     # ================= FIRST PAGE HEADER =================
-#     def draw_first_page_header():
+# # #         c.setFont("Helvetica", 10)
+# # #         c.drawString(60, height - 70, "Name: ______________________________")
+# # #         c.drawString(60, height - 90, "Date: ______________________________")
 
-#         draw_alignment_markers(c, width, height)
+# # #         # -------- ROLL NUMBER SECTION --------
+# # #         roll_top = height - 120
+# # #         c.setFont("Helvetica-Bold", 11)
+# # #         c.drawString(60, roll_top, "Roll No")
 
-#         c.setFont("Helvetica-Bold", 14)
-#         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # #         digit_spacing = 45
+# # #         row_spacing = 18
 
-#         c.setFont("Helvetica", 10)
-#         c.drawString(60, height - 70, "Name: ______________________________")
-#         c.drawString(60, height - 90, "Date: ______________________________")
+# # #         start_x = 90
+# # #         start_y = roll_top - 35
 
-#         # Roll No Section
-#         roll_top = height - 120
-#         c.setFont("Helvetica-Bold", 11)
-#         c.drawString(60, roll_top, "Roll No")
+# # #         # 1️⃣ Empty boxes above roll grid
+# # #         box_size = 16
+# # #         for i in range(exam.roll_no_digit):
+# # #             box_x = start_x + (i * digit_spacing) - 8
+# # #             box_y = roll_top - 15
+# # #             c.rect(box_x, box_y, box_size, box_size)
 
-#         col_x = 60
-#         max_depth = 0
+# # #         # 2️⃣ Roll number grid
+# # #         for digit_index in range(exam.roll_no_digit):
 
-#         for _ in range(exam.roll_no_digit):
+# # #             x_center = start_x + (digit_index * digit_spacing)
 
-#             y_roll = roll_top - 25
-#             depth = 0
+# # #             for num in range(10):
 
-#             for num in range(10):
-#                 c.setFont("Helvetica", 8)
+# # #                 y_center = start_y - (num * row_spacing)
 
-#                 # Number LEFT of bubble
-#                 c.drawRightString(col_x + 12, y_roll + 2, str(num))
+# # #                 # Number LEFT aligned to bubble
+# # #                 c.setFont("Helvetica", 8)
+# # #                 c.drawRightString(x_center - 12, y_center - 3, str(num))
 
-#                 # Bubble
-#                 draw_bubble(c, col_x + 25, y_roll, 6)
+# # #                 # Bubble
+# # #                 draw_bubble(c, x_center, y_center, bubble_radius)
 
-#                 y_roll -= 16
-#                 depth += 16
+# # #         # 3️⃣ Separator square at right edge
+# # #         separator_x = start_x + (exam.roll_no_digit * digit_spacing) + 10
+# # #         separator_y = start_y - (4 * row_spacing)
+# # #         draw_black_square(c, separator_x, separator_y, 10)
 
-#             max_depth = max(max_depth, depth)
-#             col_x += 45   # clean spacing
+# # #         return start_y - (10 * row_spacing) - 30
 
-#         return roll_top - max_depth - 30
 
+# # #     # ================= OTHER PAGE HEADER =================
+# # #     def draw_other_page_header():
+# # #         draw_alignment_markers(c, width, height)
+# # #         return height - 60
 
-#     # ================= OTHER PAGE HEADER =================
-#     def draw_other_page_header():
-#         draw_alignment_markers(c, width, height)
-#         return height - 60
 
+# # #     # Start first page
+# # #     top_margin = draw_first_page_header()
 
-#     # Start first page
-#     top_margin = draw_first_page_header()
+# # #     bottom_margin = 50
+# # #     usable_height = top_margin - bottom_margin
+# # #     max_rows_per_column = usable_height // row_height
 
-#     bottom_margin = 50
-#     usable_height = top_margin - bottom_margin
-#     max_rows_per_column = usable_height // row_height
+# # #     column_x = [70, 200, 330, 460]
 
-#     # Fixed 4 clean columns
-#     column_x = [70, 200, 330, 460]
+# # #     number_gap = 20
+# # #     bubble_spacing = 18
 
-#     number_gap = 20
-#     bubble_spacing = 18
+# # #     q_no = 1
+# # #     col_index = 0
+# # #     row_index = 0
 
-#     q_no = 1
-#     col_index = 0
-#     row_index = 0
+# # #     for subject in exam.subjects:
 
-#     for subject in exam.subjects:
+# # #         # SUBJECT TITLE
+# # #         if row_index + 2 >= max_rows_per_column:
+# # #             col_index += 1
+# # #             row_index = 0
 
-#         # ================= SUBJECT TITLE =================
-#         if row_index + 2 >= max_rows_per_column:
-#             col_index += 1
-#             row_index = 0
+# # #             if col_index >= 4:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 top_margin = draw_other_page_header()
+# # #                 usable_height = top_margin - bottom_margin
+# # #                 max_rows_per_column = usable_height // row_height
+# # #                 col_index = 0
+# # #                 row_index = 0
 
-#             if col_index >= 4:
-#                 c.showPage()
-#                 total_pages += 1
-#                 top_margin = draw_other_page_header()
+# # #         x = column_x[col_index]
+# # #         y = top_margin - (row_index * row_height)
 
-#                 usable_height = top_margin - bottom_margin
-#                 max_rows_per_column = usable_height // row_height
+# # #         c.setFont("Helvetica-Bold", 9)
+# # #         c.drawString(x, y, subject.sub_name)
+# # #         c.line(x, y - 2, x + 110, y - 2)
 
-#                 col_index = 0
-#                 row_index = 0
+# # #         row_index += 2
 
-#         x = column_x[col_index]
-#         y = top_margin - (row_index * row_height)
+# # #         # QUESTIONS
+# # #         for _ in range(subject.question_count):
 
-#         c.setFont("Helvetica-Bold", 9)
-#         c.drawString(x, y, subject.sub_name)
-#         c.line(x, y - 2, x + 110, y - 2)
+# # #             if row_index >= max_rows_per_column:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
-#         row_index += 2
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     top_margin = draw_other_page_header()
+# # #                     usable_height = top_margin - bottom_margin
+# # #                     max_rows_per_column = usable_height // row_height
+# # #                     col_index = 0
+# # #                     row_index = 0
 
-#         # ================= QUESTIONS =================
-#         for _ in range(subject.question_count):
+# # #             x = column_x[col_index]
+# # #             y = top_margin - (row_index * row_height)
 
-#             if row_index >= max_rows_per_column:
-#                 col_index += 1
-#                 row_index = 0
+# # #             if (q_no - 1) % 5 == 0:
+# # #                 draw_black_square(c, x - 14, y - 5, 6)
 
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-#                     top_margin = draw_other_page_header()
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawString(x, y - 3, str(q_no))
 
-#                     usable_height = top_margin - bottom_margin
-#                     max_rows_per_column = usable_height // row_height
+# # #             bubble_x = x + number_gap
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y, bubble_radius)
+# # #                 bubble_x += bubble_spacing
 
-#                     col_index = 0
-#                     row_index = 0
+# # #             row_index += 1
+# # #             q_no += 1
 
-#             x = column_x[col_index]
-#             y = top_margin - (row_index * row_height)
+# # #     c.save()
+# # #     buffer.seek(0)
 
-#             # Mini square every 5 questions
-#             if (q_no - 1) % 5 == 0:
-#                 draw_black_square(c, x - 14, y - 5, 6)
+# # #     return buffer, total_pages
 
-#             # Question number
-#             c.setFont("Helvetica", 8)
-#             c.drawString(x, y - 3, str(q_no))
 
-#             # Bubbles A B C D
-#             bubble_x = x + number_gap
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y, bubble_radius)
-#                 bubble_x += bubble_spacing
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-#             row_index += 1
-#             q_no += 1
 
-#     c.save()
-#     buffer.seek(0)
+# # # # =============================
+# # # # Drawing Helpers
+# # # # =============================
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1)
+# # #     c.circle(x, y, radius)
 
-#     return buffer, total_pages
 
+# # # def draw_black_square(c, x, y, size=8):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 30)
+# # #     draw_black_square(c, width - 30, height - 30)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 30, 15)
 
 
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1.2)
-#     c.circle(x, y, radius)
+# # # # =============================
+# # # # MAIN FUNCTION
+# # # # =============================
+# # # def generate_pro_omr(exam):
 
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-# def draw_black_square(c, x, y, size=8):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
+# # #     width, height = A4
+# # #     total_pages = 1
 
+# # #     row_height = 16
+# # #     bubble_radius = 6
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 15, height - 30)
-#     draw_black_square(c, width - 30, height - 30)
-#     draw_black_square(c, 15, 15)
-#     draw_black_square(c, width - 30, 15)
+# # #     # ================= FIRST PAGE HEADER =================
+# # #     def draw_first_page_header():
 
+# # #         draw_alignment_markers(c, width, height)
 
-# def generate_pro_omr(exam):
+# # #         c.setFont("Helvetica-Bold", 14)
+# # #         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # #         c.setFont("Helvetica", 10)
+# # #         c.drawString(60, height - 70, "Name: ______________________________")
+# # #         c.drawString(60, height - 90, "Date: ______________________________")
 
-#     width, height = A4
-#     total_pages = 1
+# # #         # Roll No Section
+# # #         roll_top = height - 120
+# # #         c.setFont("Helvetica-Bold", 11)
+# # #         c.drawString(60, roll_top, "Roll No")
 
-#     row_height = 16
-#     bubble_radius = 6
+# # #         col_x = 60
+# # #         max_depth = 0
 
-#     # ================= FIRST PAGE HEADER =================
-#     def draw_first_page_header():
-#         draw_alignment_markers(c, width, height)
+# # #         for _ in range(exam.roll_no_digit):
 
-#         c.setFont("Helvetica-Bold", 14)
-#         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # #             y_roll = roll_top - 25
+# # #             depth = 0
 
-#         c.setFont("Helvetica", 10)
-#         c.drawString(60, height - 70, "Name: ______________________________")
-#         c.drawString(60, height - 90, "Date: ______________________________")
+# # #             for num in range(10):
+# # #                 c.setFont("Helvetica", 8)
 
-#         roll_top = height - 120
-#         c.setFont("Helvetica-Bold", 10)
-#         c.drawString(60, roll_top, "Roll No")
+# # #                 # Number LEFT of bubble
+# # #                 c.drawRightString(col_x + 12, y_roll + 2, str(num))
 
-#         col_x = 60
-#         max_depth = 0
+# # #                 # Bubble
+# # #                 draw_bubble(c, col_x + 25, y_roll, 6)
 
-#         for _ in range(exam.roll_no_digit):
-#             y_roll = roll_top - 20
-#             depth = 0
-#             for num in range(10):
-#                 c.setFont("Helvetica", 7)
-#                 c.drawCentredString(col_x + 6, y_roll + 6, str(num))
-#                 draw_bubble(c, col_x + 6, y_roll, 5)
-#                 y_roll -= 12
-#                 depth += 12
-#             max_depth = max(max_depth, depth)
-#             col_x += 22
+# # #                 y_roll -= 16
+# # #                 depth += 16
 
-#         return roll_top - max_depth - 30
+# # #             max_depth = max(max_depth, depth)
+# # #             col_x += 45   # clean spacing
 
+# # #         return roll_top - max_depth - 30
 
-#     # ================= OTHER PAGE HEADER =================
-#     def draw_other_page():
-#         draw_alignment_markers(c, width, height)
-#         return height - 60
 
+# # #     # ================= OTHER PAGE HEADER =================
+# # #     def draw_other_page_header():
+# # #         draw_alignment_markers(c, width, height)
+# # #         return height - 60
 
-#     # Start First Page
-#     top_margin = draw_first_page_header()
 
-#     bottom_margin = 50
-#     usable_height = top_margin - bottom_margin
-#     max_rows_per_column = usable_height // row_height
+# # #     # Start first page
+# # #     top_margin = draw_first_page_header()
 
-#     column_x = [70, 200, 330, 460]
+# # #     bottom_margin = 50
+# # #     usable_height = top_margin - bottom_margin
+# # #     max_rows_per_column = usable_height // row_height
 
-#     number_width = 18
-#     bubble_gap = 10
-#     bubble_spacing = 18
+# # #     # Fixed 4 clean columns
+# # #     column_x = [70, 200, 330, 460]
 
-#     q_no = 1
-#     col_index = 0
-#     row_index = 0
+# # #     number_gap = 20
+# # #     bubble_spacing = 18
 
-#     for subject in exam.subjects:
+# # #     q_no = 1
+# # #     col_index = 0
+# # #     row_index = 0
 
-#         # ===== SUBJECT TITLE =====
-#         if row_index + 2 >= max_rows_per_column:
-#             col_index += 1
-#             row_index = 0
+# # #     for subject in exam.subjects:
 
-#             if col_index >= 4:
-#                 c.showPage()
-#                 total_pages += 1
-#                 top_margin = draw_other_page()
-#                 usable_height = top_margin - bottom_margin
-#                 max_rows_per_column = usable_height // row_height
-#                 col_index = 0
-#                 row_index = 0
+# # #         # ================= SUBJECT TITLE =================
+# # #         if row_index + 2 >= max_rows_per_column:
+# # #             col_index += 1
+# # #             row_index = 0
 
-#         x = column_x[col_index]
-#         y = top_margin - (row_index * row_height)
+# # #             if col_index >= 4:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 top_margin = draw_other_page_header()
 
-#         c.setFont("Helvetica-Bold", 9)
-#         c.drawString(x, y, subject.sub_name)
-#         c.line(x, y - 2, x + 100, y - 2)
+# # #                 usable_height = top_margin - bottom_margin
+# # #                 max_rows_per_column = usable_height // row_height
 
-#         row_index += 2
+# # #                 col_index = 0
+# # #                 row_index = 0
 
-#         # ===== QUESTIONS =====
-#         for _ in range(subject.question_count):
+# # #         x = column_x[col_index]
+# # #         y = top_margin - (row_index * row_height)
 
-#             if row_index >= max_rows_per_column:
-#                 col_index += 1
-#                 row_index = 0
+# # #         c.setFont("Helvetica-Bold", 9)
+# # #         c.drawString(x, y, subject.sub_name)
+# # #         c.line(x, y - 2, x + 110, y - 2)
 
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-#                     top_margin = draw_other_page()
-#                     usable_height = top_margin - bottom_margin
-#                     max_rows_per_column = usable_height // row_height
-#                     col_index = 0
+# # #         row_index += 2
 
-#             x = column_x[col_index]
-#             y = top_margin - (row_index * row_height)
+# # #         # ================= QUESTIONS =================
+# # #         for _ in range(subject.question_count):
 
-#             if (q_no - 1) % 5 == 0:
-#                 draw_black_square(c, x - 12, y - 5, 6)
+# # #             if row_index >= max_rows_per_column:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
-#             c.setFont("Helvetica", 8)
-#             c.drawString(x, y - 3, str(q_no))
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     top_margin = draw_other_page_header()
 
-#             bubble_x = x + number_width + bubble_gap
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y, bubble_radius)
-#                 bubble_x += bubble_spacing
+# # #                     usable_height = top_margin - bottom_margin
+# # #                     max_rows_per_column = usable_height // row_height
 
-#             row_index += 1
-#             q_no += 1
+# # #                     col_index = 0
+# # #                     row_index = 0
 
-#     c.save()
-#     buffer.seek(0)
+# # #             x = column_x[col_index]
+# # #             y = top_margin - (row_index * row_height)
 
-#     return buffer, total_pages
+# # #             # Mini square every 5 questions
+# # #             if (q_no - 1) % 5 == 0:
+# # #                 draw_black_square(c, x - 14, y - 5, 6)
 
+# # #             # Question number
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawString(x, y - 3, str(q_no))
 
+# # #             # Bubbles A B C D
+# # #             bubble_x = x + number_gap
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y, bubble_radius)
+# # #                 bubble_x += bubble_spacing
 
+# # #             row_index += 1
+# # #             q_no += 1
 
+# # #     c.save()
+# # #     buffer.seek(0)
 
+# # #     return buffer, total_pages
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
 
 
-# # =============================
-# # Drawing Helpers
-# # =============================
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1.2)
-#     c.circle(x, y, radius)
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
 
-# def draw_black_square(c, x, y, size=10):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1.2)
+# # #     c.circle(x, y, radius)
 
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 15, height - 30)
-#     draw_black_square(c, width - 30, height - 30)
-#     draw_black_square(c, 15, 15)
-#     draw_black_square(c, width - 30, 15)
+# # # def draw_black_square(c, x, y, size=8):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
 
-# # =============================
-# # MAIN OMR GENERATOR
-# # =============================
-# def generate_pro_omr(exam):
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 30)
+# # #     draw_black_square(c, width - 30, height - 30)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 30, 15)
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     width, height = A4
-#     total_pages = 1
+# # # def generate_pro_omr(exam):
 
-#     QUESTIONS_PER_PAGE = 130
-#     row_height = 16
-#     bubble_radius = 6
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     # ================= HEADER =================
-#     def draw_header(include_roll=True):
-#         draw_alignment_markers(c, width, height)
+# # #     width, height = A4
+# # #     total_pages = 1
 
-#         c.setFont("Helvetica-Bold", 14)
-#         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # #     row_height = 16
+# # #     bubble_radius = 6
 
-#         c.setFont("Helvetica", 10)
-#         c.drawString(60, height - 70, "Name: ______________________________")
-#         c.drawString(60, height - 90, "Date: ______________________________")
+# # #     # ================= FIRST PAGE HEADER =================
+# # #     def draw_first_page_header():
+# # #         draw_alignment_markers(c, width, height)
 
-#         if include_roll:
-#             roll_top = height - 120
-#             c.setFont("Helvetica-Bold", 10)
-#             c.drawString(60, roll_top, "Roll No")
+# # #         c.setFont("Helvetica-Bold", 14)
+# # #         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#             col_x = 60
-#             max_depth = 0
+# # #         c.setFont("Helvetica", 10)
+# # #         c.drawString(60, height - 70, "Name: ______________________________")
+# # #         c.drawString(60, height - 90, "Date: ______________________________")
 
-#             for _ in range(exam.roll_no_digit):
-#                 y_roll = roll_top - 20
-#                 depth = 0
-#                 for num in range(10):
-#                     c.setFont("Helvetica", 7)
-#                     c.drawCentredString(col_x + 7, y_roll + 7, str(num))
-#                     draw_bubble(c, col_x + 7, y_roll, 5)
-#                     y_roll -= 13
-#                     depth += 13
-#                 max_depth = max(max_depth, depth)
-#                 col_x += 22
+# # #         roll_top = height - 120
+# # #         c.setFont("Helvetica-Bold", 10)
+# # #         c.drawString(60, roll_top, "Roll No")
 
-#             return roll_top - max_depth - 25  # Return start Y for questions
+# # #         col_x = 60
+# # #         max_depth = 0
 
-#         return height - 80
+# # #         for _ in range(exam.roll_no_digit):
+# # #             y_roll = roll_top - 20
+# # #             depth = 0
+# # #             for num in range(10):
+# # #                 c.setFont("Helvetica", 7)
+# # #                 c.drawCentredString(col_x + 6, y_roll + 6, str(num))
+# # #                 draw_bubble(c, col_x + 6, y_roll, 5)
+# # #                 y_roll -= 12
+# # #                 depth += 12
+# # #             max_depth = max(max_depth, depth)
+# # #             col_x += 22
 
+# # #         return roll_top - max_depth - 30
 
-#     # First Page Header
-#     top_margin = draw_header(include_roll=True)
 
-#     bottom_margin = 50
-#     usable_height = top_margin - bottom_margin
-#     max_rows_per_column = usable_height // row_height
+# # #     # ================= OTHER PAGE HEADER =================
+# # #     def draw_other_page():
+# # #         draw_alignment_markers(c, width, height)
+# # #         return height - 60
 
-#     # ===== FIXED COLUMN POSITIONS (NO FLOATING WIDTH) =====
-#     column_x = [70, 200, 330, 460]
 
-#     number_width = 18
-#     bubble_gap = 10
-#     bubble_spacing = 18
+# # #     # Start First Page
+# # #     top_margin = draw_first_page_header()
 
-#     q_no = 1
-#     questions_on_page = 0
-#     col_index = 0
-#     row_index = 0
+# # #     bottom_margin = 50
+# # #     usable_height = top_margin - bottom_margin
+# # #     max_rows_per_column = usable_height // row_height
 
-#     for subject in exam.subjects:
+# # #     column_x = [70, 200, 330, 460]
 
-#         for _ in range(subject.question_count):
+# # #     number_width = 18
+# # #     bubble_gap = 10
+# # #     bubble_spacing = 18
 
-#             # ================= NEW PAGE AFTER 130 =================
-#             if questions_on_page >= QUESTIONS_PER_PAGE:
-#                 c.showPage()
-#                 total_pages += 1
-#                 top_margin = draw_header(include_roll=False)
+# # #     q_no = 1
+# # #     col_index = 0
+# # #     row_index = 0
 
-#                 usable_height = top_margin - bottom_margin
-#                 max_rows_per_column = usable_height // row_height
+# # #     for subject in exam.subjects:
 
-#                 col_index = 0
-#                 row_index = 0
-#                 questions_on_page = 0
+# # #         # ===== SUBJECT TITLE =====
+# # #         if row_index + 2 >= max_rows_per_column:
+# # #             col_index += 1
+# # #             row_index = 0
 
-#             # ================= NEW COLUMN =================
-#             if row_index >= max_rows_per_column:
-#                 col_index += 1
-#                 row_index = 0
+# # #             if col_index >= 4:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 top_margin = draw_other_page()
+# # #                 usable_height = top_margin - bottom_margin
+# # #                 max_rows_per_column = usable_height // row_height
+# # #                 col_index = 0
+# # #                 row_index = 0
 
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-#                     top_margin = draw_header(include_roll=False)
-#                     col_index = 0
+# # #         x = column_x[col_index]
+# # #         y = top_margin - (row_index * row_height)
 
-#             x = column_x[col_index]
-#             y = top_margin - (row_index * row_height)
+# # #         c.setFont("Helvetica-Bold", 9)
+# # #         c.drawString(x, y, subject.sub_name)
+# # #         c.line(x, y - 2, x + 100, y - 2)
 
-#             # ===== Mini square every 5 questions =====
-#             if (q_no - 1) % 5 == 0:
-#                 draw_black_square(c, x - 15, y - 5, 6)
+# # #         row_index += 2
 
-#             # ===== Question Number (LEFT FIXED ALIGNMENT) =====
-#             c.setFont("Helvetica", 8)
-#             c.drawString(x, y - 3, str(q_no))
+# # #         # ===== QUESTIONS =====
+# # #         for _ in range(subject.question_count):
 
-#             # ===== Bubbles A B C D =====
-#             bubble_x = x + number_width + bubble_gap
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y, bubble_radius)
-#                 bubble_x += bubble_spacing
+# # #             if row_index >= max_rows_per_column:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
-#             row_index += 1
-#             q_no += 1
-#             questions_on_page += 1
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     top_margin = draw_other_page()
+# # #                     usable_height = top_margin - bottom_margin
+# # #                     max_rows_per_column = usable_height // row_height
+# # #                     col_index = 0
 
-#     c.save()
-#     buffer.seek(0)
+# # #             x = column_x[col_index]
+# # #             y = top_margin - (row_index * row_height)
 
-#     return buffer, total_pages
+# # #             if (q_no - 1) % 5 == 0:
+# # #                 draw_black_square(c, x - 12, y - 5, 6)
 
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawString(x, y - 3, str(q_no))
 
+# # #             bubble_x = x + number_width + bubble_gap
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y, bubble_radius)
+# # #                 bubble_x += bubble_spacing
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # #             row_index += 1
+# # #             q_no += 1
 
+# # #     c.save()
+# # #     buffer.seek(0)
 
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1.2)
-#     c.circle(x, y, radius)
+# # #     return buffer, total_pages
 
 
-# def draw_black_square(c, x, y, size=14):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
 
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 15, height - 30)
-#     draw_black_square(c, width - 30, height - 30)
-#     draw_black_square(c, 15, 15)
-#     draw_black_square(c, width - 30, 15)
 
 
-# def generate_pro_omr(exam):
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     width, height = A4
-#     total_pages = 1
+# # # # =============================
+# # # # Drawing Helpers
+# # # # =============================
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1.2)
+# # #     c.circle(x, y, radius)
 
-#     QUESTIONS_PER_PAGE = 130
-#     row_height = 15
 
-#     # ================= HEADER =================
-#     draw_alignment_markers(c, width, height)
+# # # def draw_black_square(c, x, y, size=10):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
-#     c.setFont("Helvetica-Bold", 14)
-#     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#     c.setFont("Helvetica", 10)
-#     c.drawString(60, height - 70, "Name: ____________________")
-#     c.drawString(60, height - 90, "Date: ____________________")
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 30)
+# # #     draw_black_square(c, width - 30, height - 30)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 30, 15)
 
-#     # ===== Roll Number Grid =====
-#     roll_top = height - 120
-#     c.setFont("Helvetica-Bold", 10)
-#     c.drawString(60, roll_top, "Roll No")
 
-#     col_x = 60
-#     max_roll_depth = 0
+# # # # =============================
+# # # # MAIN OMR GENERATOR
+# # # # =============================
+# # # def generate_pro_omr(exam):
 
-#     for _ in range(exam.roll_no_digit):
-#         y_roll = roll_top - 20
-#         depth = 0
-#         for num in range(10):
-#             c.setFont("Helvetica", 7)
-#             c.drawCentredString(col_x + 7, y_roll + 8, str(num))
-#             draw_bubble(c, col_x + 7, y_roll)
-#             y_roll -= 13
-#             depth += 13
-#         max_roll_depth = max(max_roll_depth, depth)
-#         col_x += 22
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     # 🔥 START QUESTIONS AFTER ROLL SECTION
-#     top_margin = roll_top - max_roll_depth - 20
-#     bottom_margin = 50
+# # #     width, height = A4
+# # #     total_pages = 1
 
-#     usable_height = top_margin - bottom_margin
-#     max_rows_per_column = int(usable_height / row_height)
+# # #     QUESTIONS_PER_PAGE = 130
+# # #     row_height = 16
+# # #     bubble_radius = 6
 
-#     # Equal 4 column spacing
-#     left_margin = 60
-#     right_margin = 40
-#     usable_width = width - left_margin - right_margin
-#     column_width = usable_width / 4
+# # #     # ================= HEADER =================
+# # #     def draw_header(include_roll=True):
+# # #         draw_alignment_markers(c, width, height)
 
-#     column_x = [
-#         left_margin + (i * column_width)
-#         for i in range(4)
-#     ]
+# # #         c.setFont("Helvetica-Bold", 14)
+# # #         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#     number_offset = 15
-#     bubble_spacing = 14
+# # #         c.setFont("Helvetica", 10)
+# # #         c.drawString(60, height - 70, "Name: ______________________________")
+# # #         c.drawString(60, height - 90, "Date: ______________________________")
 
-#     q_no = 1
-#     questions_on_page = 0
-#     col_index = 0
-#     row_index = 0
+# # #         if include_roll:
+# # #             roll_top = height - 120
+# # #             c.setFont("Helvetica-Bold", 10)
+# # #             c.drawString(60, roll_top, "Roll No")
 
-#     for subject in exam.subjects:
+# # #             col_x = 60
+# # #             max_depth = 0
 
-#         for _ in range(subject.question_count):
+# # #             for _ in range(exam.roll_no_digit):
+# # #                 y_roll = roll_top - 20
+# # #                 depth = 0
+# # #                 for num in range(10):
+# # #                     c.setFont("Helvetica", 7)
+# # #                     c.drawCentredString(col_x + 7, y_roll + 7, str(num))
+# # #                     draw_bubble(c, col_x + 7, y_roll, 5)
+# # #                     y_roll -= 13
+# # #                     depth += 13
+# # #                 max_depth = max(max_depth, depth)
+# # #                 col_x += 22
 
-#             # NEW PAGE AFTER 130 QUESTIONS
-#             if questions_on_page >= QUESTIONS_PER_PAGE:
-#                 c.showPage()
-#                 total_pages += 1
-#                 draw_alignment_markers(c, width, height)
+# # #             return roll_top - max_depth - 25  # Return start Y for questions
 
-#                 top_margin = height - 80
-#                 usable_height = top_margin - bottom_margin
-#                 max_rows_per_column = int(usable_height / row_height)
+# # #         return height - 80
 
-#                 col_index = 0
-#                 row_index = 0
-#                 questions_on_page = 0
 
-#             # NEW COLUMN
-#             if row_index >= max_rows_per_column:
-#                 col_index += 1
-#                 row_index = 0
+# # #     # First Page Header
+# # #     top_margin = draw_header(include_roll=True)
 
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-#                     draw_alignment_markers(c, width, height)
+# # #     bottom_margin = 50
+# # #     usable_height = top_margin - bottom_margin
+# # #     max_rows_per_column = usable_height // row_height
 
-#                     col_index = 0
+# # #     # ===== FIXED COLUMN POSITIONS (NO FLOATING WIDTH) =====
+# # #     column_x = [70, 200, 330, 460]
 
-#             x = column_x[col_index]
-#             y = top_margin - (row_index * row_height)
+# # #     number_width = 18
+# # #     bubble_gap = 10
+# # #     bubble_spacing = 18
 
-#             # Mini square every 5 questions
-#             if q_no % 5 == 1:
-#                 draw_black_square(c, x - 10, y - 4, 7)
+# # #     q_no = 1
+# # #     questions_on_page = 0
+# # #     col_index = 0
+# # #     row_index = 0
 
-#             # Question number
-#             c.setFont("Helvetica", 7)
-#             c.drawRightString(x + number_offset, y + 3, str(q_no))
+# # #     for subject in exam.subjects:
 
-#             # Bubbles
-#             bubble_x = x + number_offset + 5
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y)
-#                 bubble_x += bubble_spacing
+# # #         for _ in range(subject.question_count):
 
-#             row_index += 1
-#             q_no += 1
-#             questions_on_page += 1
+# # #             # ================= NEW PAGE AFTER 130 =================
+# # #             if questions_on_page >= QUESTIONS_PER_PAGE:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 top_margin = draw_header(include_roll=False)
 
-#     c.save()
-#     buffer.seek(0)
+# # #                 usable_height = top_margin - bottom_margin
+# # #                 max_rows_per_column = usable_height // row_height
 
-#     return buffer, total_pages
+# # #                 col_index = 0
+# # #                 row_index = 0
+# # #                 questions_on_page = 0
 
+# # #             # ================= NEW COLUMN =================
+# # #             if row_index >= max_rows_per_column:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     top_margin = draw_header(include_roll=False)
+# # #                     col_index = 0
 
+# # #             x = column_x[col_index]
+# # #             y = top_margin - (row_index * row_height)
 
+# # #             # ===== Mini square every 5 questions =====
+# # #             if (q_no - 1) % 5 == 0:
+# # #                 draw_black_square(c, x - 15, y - 5, 6)
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # #             # ===== Question Number (LEFT FIXED ALIGNMENT) =====
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawString(x, y - 3, str(q_no))
 
+# # #             # ===== Bubbles A B C D =====
+# # #             bubble_x = x + number_width + bubble_gap
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y, bubble_radius)
+# # #                 bubble_x += bubble_spacing
 
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1.2)
-#     c.circle(x, y, radius)
+# # #             row_index += 1
+# # #             q_no += 1
+# # #             questions_on_page += 1
 
+# # #     c.save()
+# # #     buffer.seek(0)
 
-# def draw_black_square(c, x, y, size=14):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
+# # #     return buffer, total_pages
 
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 15, height - 30)
-#     draw_black_square(c, width - 30, height - 30)
-#     draw_black_square(c, 15, 15)
-#     draw_black_square(c, width - 30, 15)
 
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-# def generate_pro_omr(exam):
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1.2)
+# # #     c.circle(x, y, radius)
 
-#     width, height = A4
-#     total_pages = 1
 
-#     QUESTIONS_PER_PAGE = 130
-#     row_height = 16
+# # # def draw_black_square(c, x, y, size=14):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
-#     # ================= HEADER =================
-#     def draw_header():
-#         draw_alignment_markers(c, width, height)
 
-#         c.setFont("Helvetica-Bold", 14)
-#         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 30)
+# # #     draw_black_square(c, width - 30, height - 30)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 30, 15)
 
-#         c.setFont("Helvetica", 10)
-#         c.drawString(60, height - 70, "Name: ____________________")
-#         c.drawString(60, height - 90, "Date: ____________________")
 
-#     draw_header()
+# # # def generate_pro_omr(exam):
 
-#     # ================= GRID SETTINGS =================
-#     top_margin = height - 120
-#     bottom_margin = 60
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     usable_height = top_margin - bottom_margin
-#     max_rows_per_column = int(usable_height / row_height)
+# # #     width, height = A4
+# # #     total_pages = 1
 
-#     column_x = [60, 190, 320, 450]
-#     number_offset = 16
-#     bubble_spacing = 16
+# # #     QUESTIONS_PER_PAGE = 130
+# # #     row_height = 15
 
-#     q_no = 1
-#     questions_on_page = 0
+# # #     # ================= HEADER =================
+# # #     draw_alignment_markers(c, width, height)
 
-#     col_index = 0
-#     row_index = 0
+# # #     c.setFont("Helvetica-Bold", 14)
+# # #     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#     for subject in exam.subjects:
+# # #     c.setFont("Helvetica", 10)
+# # #     c.drawString(60, height - 70, "Name: ____________________")
+# # #     c.drawString(60, height - 90, "Date: ____________________")
 
-#         for _ in range(subject.question_count):
+# # #     # ===== Roll Number Grid =====
+# # #     roll_top = height - 120
+# # #     c.setFont("Helvetica-Bold", 10)
+# # #     c.drawString(60, roll_top, "Roll No")
 
-#             # NEW PAGE
-#             if questions_on_page >= QUESTIONS_PER_PAGE:
-#                 c.showPage()
-#                 total_pages += 1
-#                 draw_alignment_markers(c, width, height)
+# # #     col_x = 60
+# # #     max_roll_depth = 0
 
-#                 col_index = 0
-#                 row_index = 0
-#                 questions_on_page = 0
+# # #     for _ in range(exam.roll_no_digit):
+# # #         y_roll = roll_top - 20
+# # #         depth = 0
+# # #         for num in range(10):
+# # #             c.setFont("Helvetica", 7)
+# # #             c.drawCentredString(col_x + 7, y_roll + 8, str(num))
+# # #             draw_bubble(c, col_x + 7, y_roll)
+# # #             y_roll -= 13
+# # #             depth += 13
+# # #         max_roll_depth = max(max_roll_depth, depth)
+# # #         col_x += 22
 
-#             # NEW COLUMN
-#             if row_index >= max_rows_per_column:
-#                 col_index += 1
-#                 row_index = 0
+# # #     # 🔥 START QUESTIONS AFTER ROLL SECTION
+# # #     top_margin = roll_top - max_roll_depth - 20
+# # #     bottom_margin = 50
 
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-#                     draw_alignment_markers(c, width, height)
-#                     col_index = 0
+# # #     usable_height = top_margin - bottom_margin
+# # #     max_rows_per_column = int(usable_height / row_height)
 
-#             x = column_x[col_index]
-#             y = top_margin - (row_index * row_height)
+# # #     # Equal 4 column spacing
+# # #     left_margin = 60
+# # #     right_margin = 40
+# # #     usable_width = width - left_margin - right_margin
+# # #     column_width = usable_width / 4
 
-#             # Mini block markers every 5 questions
-#             if q_no % 5 == 1:
-#                 draw_black_square(c, x - 18, y - 5, 8)
+# # #     column_x = [
+# # #         left_margin + (i * column_width)
+# # #         for i in range(4)
+# # #     ]
 
-#             # Question number
-#             c.setFont("Helvetica", 7)
-#             c.drawRightString(x + number_offset, y + 3, str(q_no))
+# # #     number_offset = 15
+# # #     bubble_spacing = 14
 
-#             # Bubbles
-#             bubble_x = x + number_offset + 6
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y)
-#                 bubble_x += bubble_spacing
+# # #     q_no = 1
+# # #     questions_on_page = 0
+# # #     col_index = 0
+# # #     row_index = 0
 
-#             row_index += 1
-#             q_no += 1
-#             questions_on_page += 1
+# # #     for subject in exam.subjects:
 
-#     c.save()
-#     buffer.seek(0)
-#     return buffer, total_pages
+# # #         for _ in range(subject.question_count):
 
+# # #             # NEW PAGE AFTER 130 QUESTIONS
+# # #             if questions_on_page >= QUESTIONS_PER_PAGE:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 draw_alignment_markers(c, width, height)
 
+# # #                 top_margin = height - 80
+# # #                 usable_height = top_margin - bottom_margin
+# # #                 max_rows_per_column = int(usable_height / row_height)
 
+# # #                 col_index = 0
+# # #                 row_index = 0
+# # #                 questions_on_page = 0
 
+# # #             # NEW COLUMN
+# # #             if row_index >= max_rows_per_column:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     draw_alignment_markers(c, width, height)
 
+# # #                     col_index = 0
 
+# # #             x = column_x[col_index]
+# # #             y = top_margin - (row_index * row_height)
 
+# # #             # Mini square every 5 questions
+# # #             if q_no % 5 == 1:
+# # #                 draw_black_square(c, x - 10, y - 4, 7)
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # #             # Question number
+# # #             c.setFont("Helvetica", 7)
+# # #             c.drawRightString(x + number_offset, y + 3, str(q_no))
 
+# # #             # Bubbles
+# # #             bubble_x = x + number_offset + 5
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y)
+# # #                 bubble_x += bubble_spacing
 
-# # =============================
-# # Drawing Helpers
-# # =============================
-# def draw_bubble(c, x, y, radius=6):
-#     c.setLineWidth(1.2)
-#     c.circle(x, y, radius)
+# # #             row_index += 1
+# # #             q_no += 1
+# # #             questions_on_page += 1
 
+# # #     c.save()
+# # #     buffer.seek(0)
 
-# def draw_black_square(c, x, y, size=16):
-#     c.setFillColorRGB(0, 0, 0)
-#     c.rect(x, y, size, size, fill=1)
+# # #     return buffer, total_pages
 
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 15, height - 30)
-#     draw_black_square(c, width - 30, height - 30)
-#     draw_black_square(c, 15, 15)
-#     draw_black_square(c, width - 30, 15)
 
 
-# # =============================
-# # MAIN GENERATOR
-# # =============================
-# def generate_pro_omr(exam):
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-#     width, height = A4
-#     total_pages = 1
 
-#     QUESTIONS_PER_PAGE = 130
-#     q_no = 1
-#     questions_on_page = 0
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1.2)
+# # #     c.circle(x, y, radius)
 
-#     # =============================
-#     # HEADER (ONLY FIRST PAGE)
-#     # =============================
-#     draw_alignment_markers(c, width, height)
 
-#     c.setFont("Helvetica-Bold", 14)
-#     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # # def draw_black_square(c, x, y, size=14):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
-#     c.setFont("Helvetica", 11)
-#     c.drawString(60, height - 70, "Name: ____________________________")
-#     c.drawString(60, height - 90, "Date: ____________________________")
 
-#     # Roll Number Grid (Compact Like Image)
-#     c.setFont("Helvetica-Bold", 11)
-#     c.drawString(60, height - 120, "Roll No")
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 30)
+# # #     draw_black_square(c, width - 30, height - 30)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 30, 15)
 
-#     col_x = 60
-#     for _ in range(exam.roll_no_digit):
-#         y_roll = height - 140
-#         for num in range(10):
-#             c.setFont("Helvetica", 8)
-#             c.drawCentredString(col_x + 8, y_roll + 12, str(num))
-#             draw_bubble(c, col_x + 8, y_roll)
-#             y_roll -= 15
-#         col_x += 25
 
-#     # =============================
-#     # QUESTION GRID SETTINGS
-#     # =============================
-#     column_positions = [60, 200, 340, 480]  # 4 compact columns
-#     start_y = height - 300
-#     bottom_limit = 50
-#     row_height = 16
-#     number_offset = 18
-#     bubble_spacing = 18
+# # # def generate_pro_omr(exam):
 
-#     col_index = 0
-#     y = start_y
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     # =============================
-#     # DRAW QUESTIONS
-#     # =============================
-#     for subject in exam.subjects:
+# # #     width, height = A4
+# # #     total_pages = 1
 
-#         for _ in range(subject.question_count):
+# # #     QUESTIONS_PER_PAGE = 130
+# # #     row_height = 16
 
-#             # Move to next page if 130 reached
-#             if questions_on_page >= QUESTIONS_PER_PAGE:
-#                 c.showPage()
-#                 total_pages += 1
-#                 draw_alignment_markers(c, width, height)
+# # #     # ================= HEADER =================
+# # #     def draw_header():
+# # #         draw_alignment_markers(c, width, height)
 
-#                 col_index = 0
-#                 y = height - 80
-#                 questions_on_page = 0
+# # #         c.setFont("Helvetica-Bold", 14)
+# # #         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#             # Move to next column
-#             if y < bottom_limit:
-#                 col_index += 1
-#                 y = start_y
+# # #         c.setFont("Helvetica", 10)
+# # #         c.drawString(60, height - 70, "Name: ____________________")
+# # #         c.drawString(60, height - 90, "Date: ____________________")
 
-#                 if col_index >= 4:
-#                     c.showPage()
-#                     total_pages += 1
-#                     draw_alignment_markers(c, width, height)
-#                     col_index = 0
-#                     y = height - 80
-#                     questions_on_page = 0
+# # #     draw_header()
 
-#             x = column_positions[col_index]
+# # #     # ================= GRID SETTINGS =================
+# # #     top_margin = height - 120
+# # #     bottom_margin = 60
 
-#             # Draw small black square marker beside blocks
-#             if q_no % 5 == 1:
-#                 draw_black_square(c, x - 20, y - 5, 8)
+# # #     usable_height = top_margin - bottom_margin
+# # #     max_rows_per_column = int(usable_height / row_height)
 
-#             # Draw question number
-#             c.setFont("Helvetica", 8)
-#             c.drawRightString(x + number_offset, y + 3, str(q_no))
+# # #     column_x = [60, 190, 320, 450]
+# # #     number_offset = 16
+# # #     bubble_spacing = 16
 
-#             # Draw A B C D bubbles
-#             bubble_x = x + number_offset + 8
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y)
-#                 bubble_x += bubble_spacing
+# # #     q_no = 1
+# # #     questions_on_page = 0
 
-#             y -= row_height
-#             q_no += 1
-#             questions_on_page += 1
+# # #     col_index = 0
+# # #     row_index = 0
 
-#     c.save()
-#     buffer.seek(0)
+# # #     for subject in exam.subjects:
 
-#     return buffer, total_pages
+# # #         for _ in range(subject.question_count):
 
+# # #             # NEW PAGE
+# # #             if questions_on_page >= QUESTIONS_PER_PAGE:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 draw_alignment_markers(c, width, height)
 
+# # #                 col_index = 0
+# # #                 row_index = 0
+# # #                 questions_on_page = 0
 
+# # #             # NEW COLUMN
+# # #             if row_index >= max_rows_per_column:
+# # #                 col_index += 1
+# # #                 row_index = 0
 
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     draw_alignment_markers(c, width, height)
+# # #                     col_index = 0
 
+# # #             x = column_x[col_index]
+# # #             y = top_margin - (row_index * row_height)
 
+# # #             # Mini block markers every 5 questions
+# # #             if q_no % 5 == 1:
+# # #                 draw_black_square(c, x - 18, y - 5, 8)
 
+# # #             # Question number
+# # #             c.setFont("Helvetica", 7)
+# # #             c.drawRightString(x + number_offset, y + 3, str(q_no))
 
+# # #             # Bubbles
+# # #             bubble_x = x + number_offset + 6
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y)
+# # #                 bubble_x += bubble_spacing
 
+# # #             row_index += 1
+# # #             q_no += 1
+# # #             questions_on_page += 1
 
+# # #     c.save()
+# # #     buffer.seek(0)
+# # #     return buffer, total_pages
 
 
 
@@ -1729,558 +1745,710 @@ def generate_pro_omr(exam):
 
 
 
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
 
+# # # # =============================
+# # # # Drawing Helpers
+# # # # =============================
+# # # def draw_bubble(c, x, y, radius=6):
+# # #     c.setLineWidth(1.2)
+# # #     c.circle(x, y, radius)
 
 
+# # # def draw_black_square(c, x, y, size=16):
+# # #     c.setFillColorRGB(0, 0, 0)
+# # #     c.rect(x, y, size, size, fill=1)
 
 
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 15, height - 30)
+# # #     draw_black_square(c, width - 30, height - 30)
+# # #     draw_black_square(c, 15, 15)
+# # #     draw_black_square(c, width - 30, 15)
 
 
+# # # # =============================
+# # # # MAIN GENERATOR
+# # # # =============================
+# # # def generate_pro_omr(exam):
 
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
+# # #     width, height = A4
+# # #     total_pages = 1
 
+# # #     QUESTIONS_PER_PAGE = 130
+# # #     q_no = 1
+# # #     questions_on_page = 0
 
+# # #     # =============================
+# # #     # HEADER (ONLY FIRST PAGE)
+# # #     # =============================
+# # #     draw_alignment_markers(c, width, height)
 
+# # #     c.setFont("Helvetica-Bold", 14)
+# # #     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # #     c.setFont("Helvetica", 11)
+# # #     c.drawString(60, height - 70, "Name: ____________________________")
+# # #     c.drawString(60, height - 90, "Date: ____________________________")
 
+# # #     # Roll Number Grid (Compact Like Image)
+# # #     c.setFont("Helvetica-Bold", 11)
+# # #     c.drawString(60, height - 120, "Roll No")
 
-# # =============================
-# # Drawing Helpers
-# # =============================
-# def draw_bubble(c, x, y, radius=7):
-#     c.setLineWidth(1.3)
-#     c.circle(x, y, radius)
+# # #     col_x = 60
+# # #     for _ in range(exam.roll_no_digit):
+# # #         y_roll = height - 140
+# # #         for num in range(10):
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawCentredString(col_x + 8, y_roll + 12, str(num))
+# # #             draw_bubble(c, col_x + 8, y_roll)
+# # #             y_roll -= 15
+# # #         col_x += 25
 
+# # #     # =============================
+# # #     # QUESTION GRID SETTINGS
+# # #     # =============================
+# # #     column_positions = [60, 200, 340, 480]  # 4 compact columns
+# # #     start_y = height - 300
+# # #     bottom_limit = 50
+# # #     row_height = 16
+# # #     number_offset = 18
+# # #     bubble_spacing = 18
 
-# def draw_black_square(c, x, y, size=15):
-#     c.rect(x, y, size, size, fill=1)
+# # #     col_index = 0
+# # #     y = start_y
 
+# # #     # =============================
+# # #     # DRAW QUESTIONS
+# # #     # =============================
+# # #     for subject in exam.subjects:
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 10, height - 25)
-#     draw_black_square(c, width - 25, height - 25)
-#     draw_black_square(c, 10, 10)
-#     draw_black_square(c, width - 25, 10)
+# # #         for _ in range(subject.question_count):
 
+# # #             # Move to next page if 130 reached
+# # #             if questions_on_page >= QUESTIONS_PER_PAGE:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 draw_alignment_markers(c, width, height)
 
-# # =============================
-# # MAIN OMR GENERATOR
-# # =============================
-# def generate_pro_omr(exam):
+# # #                 col_index = 0
+# # #                 y = height - 80
+# # #                 questions_on_page = 0
 
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # #             # Move to next column
+# # #             if y < bottom_limit:
+# # #                 col_index += 1
+# # #                 y = start_y
 
-#     width, height = A4
-#     total_pages = 1
-#     is_first_page = True
+# # #                 if col_index >= 4:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     draw_alignment_markers(c, width, height)
+# # #                     col_index = 0
+# # #                     y = height - 80
+# # #                     questions_on_page = 0
 
-#     # =============================
-#     # FIRST PAGE HEADER
-#     # =============================
-#     draw_alignment_markers(c, width, height)
+# # #             x = column_positions[col_index]
 
-#     c.setFont("Helvetica-Bold", 15)
-#     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # #             # Draw small black square marker beside blocks
+# # #             if q_no % 5 == 1:
+# # #                 draw_black_square(c, x - 20, y - 5, 8)
 
-#     c.setFont("Helvetica", 12)
-#     c.drawString(60, height - 70, "Name: ____________________________")
-#     c.drawString(60, height - 95, "Date: ____________________________")
+# # #             # Draw question number
+# # #             c.setFont("Helvetica", 8)
+# # #             c.drawRightString(x + number_offset, y + 3, str(q_no))
 
-#     # Exam Set
-#     c.setFont("Helvetica-Bold", 12)
-#     c.drawString(60, height - 130, "Exam Set:")
+# # #             # Draw A B C D bubbles
+# # #             bubble_x = x + number_offset + 8
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y)
+# # #                 bubble_x += bubble_spacing
 
-#     set_x = 160
-#     for i in range(1, exam.exam_set + 1):
-#         c.drawCentredString(set_x, height - 145, str(i))
-#         draw_bubble(c, set_x, height - 165)
-#         set_x += 35
+# # #             y -= row_height
+# # #             q_no += 1
+# # #             questions_on_page += 1
 
-#     # Roll No
-#     c.setFont("Helvetica-Bold", 12)
-#     c.drawString(60, height - 200, "Roll No:")
+# # #     c.save()
+# # #     buffer.seek(0)
 
-#     col_x = 160
-#     for _ in range(exam.roll_no_digit):
-#         y_roll = height - 225
-#         for num in range(10):
-#             c.setFont("Helvetica", 9)
-#             c.drawRightString(col_x - 12, y_roll - 3, str(num))
-#             draw_bubble(c, col_x, y_roll)
-#             y_roll -= 20
-#         col_x += 50
+# # #     return buffer, total_pages
 
-#     # =============================
-#     # QUESTION GRID CONFIG
-#     # =============================
-#     left_x = 100
-#     right_x = width - 250
 
-#     first_page_start = height - 430
-#     next_page_start = height - 120
 
-#     bottom_limit = 60
-#     row_height = 28
-#     number_width = 25
-#     bubble_spacing = 35
 
-#     current_x = left_x
-#     y = first_page_start
-#     q_no = 1
 
-#     # =============================
-#     # DRAW QUESTIONS
-#     # =============================
-#     for subject in exam.subjects:
 
-#         # Handle subject title placement
-#         if y < bottom_limit:
 
-#             if current_x == left_x:
-#                 current_x = right_x
-#                 y = first_page_start if is_first_page else next_page_start
-#             else:
-#                 c.showPage()
-#                 total_pages += 1
-#                 draw_alignment_markers(c, width, height)
-#                 is_first_page = False
-#                 current_x = left_x
-#                 y = next_page_start
 
-#         # Draw subject title
-#         c.setFont("Helvetica-Bold", 12)
-#         c.drawString(current_x, y, f"Subject: {subject.sub_name}")
-#         y -= 30
 
-#         for _ in range(subject.question_count):
 
-#             if y < bottom_limit:
 
-#                 if current_x == left_x:
-#                     current_x = right_x
-#                     y = first_page_start if is_first_page else next_page_start
-#                 else:
-#                     c.showPage()
-#                     total_pages += 1
-#                     draw_alignment_markers(c, width, height)
-#                     is_first_page = False
-#                     current_x = left_x
-#                     y = next_page_start
 
-#             # Draw question number
-#             c.setFont("Helvetica", 11)
-#             c.drawRightString(current_x + number_width, y - 3, str(q_no))
 
-#             # Draw bubbles
-#             bubble_x = current_x + number_width + 20
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y)
-#                 bubble_x += bubble_spacing
 
-#             y -= row_height
-#             q_no += 1
 
-#         y -= 20
 
-#     # =============================
-#     # FINISH
-#     # =============================
-#     c.save()
-#     buffer.seek(0)
 
-#     return buffer, total_pages
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
 
 
-# def draw_bubble(c, x, y, radius=7):
-#     c.setLineWidth(1.3)
-#     c.circle(x, y, radius)
 
 
-# def draw_black_square(c, x, y, size=15):
-#     c.rect(x, y, size, size, fill=1)
 
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 10, height - 25)
-#     draw_black_square(c, width - 25, height - 25)
-#     draw_black_square(c, 10, 10)
-#     draw_black_square(c, width - 25, 10)
 
-# def generate_pro_omr(exam):
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
 
-#     width, height = A4
-#     total_pages = 1
 
-#     # ================= FIRST PAGE =================
-#     draw_alignment_markers(c, width, height)
 
-#     c.setFont("Helvetica-Bold", 15)
-#     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#     c.setFont("Helvetica", 12)
-#     c.drawString(60, height - 70, "Name: ____________________________")
-#     c.drawString(60, height - 95, "Date: ____________________________")
 
-#     c.setFont("Helvetica-Bold", 12)
-#     c.drawString(60, height - 130, "Exam Set:")
 
-#     set_x = 160
-#     for i in range(1, exam.exam_set + 1):
-#         c.drawCentredString(set_x, height - 145, str(i))
-#         draw_bubble(c, set_x, height - 165)
-#         set_x += 35
 
-#     c.setFont("Helvetica-Bold", 12)
-#     c.drawString(60, height - 200, "Roll No:")
 
-#     col_x = 160
-#     for _ in range(exam.roll_no_digit):
-#         y_roll = height - 225
-#         for num in range(10):
-#             c.setFont("Helvetica", 9)
-#             c.drawRightString(col_x - 12, y_roll - 3, str(num))
-#             draw_bubble(c, col_x, y_roll)
-#             y_roll -= 20
-#         col_x += 50
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-#     # ================= QUESTION GRID =================
-#     left_x = 100
-#     right_x = width - 250
 
-#     first_page_start = height - 430
-#     next_page_start = height - 120   # No empty space
+# # # # =============================
+# # # # Drawing Helpers
+# # # # =============================
+# # # def draw_bubble(c, x, y, radius=7):
+# # #     c.setLineWidth(1.3)
+# # #     c.circle(x, y, radius)
 
-#     bottom_limit = 70
-#     row_height = 28
-#     number_width = 25
-#     bubble_spacing = 35
 
-#     current_x = left_x
-#     y = first_page_start
-#     q_no = 1
+# # # def draw_black_square(c, x, y, size=15):
+# # #     c.rect(x, y, size, size, fill=1)
 
-#     for subject in exam.subjects:
 
-#         # If no space for subject title
-#         if y < bottom_limit:
-#             if current_x == left_x:
-#                 current_x = right_x
-#                 y = first_page_start
-#             else:
-#                 c.showPage()
-#                 total_pages += 1
-#                 draw_alignment_markers(c, width, height)
-#                 current_x = left_x
-#                 y = next_page_start   # Start higher on new page
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 10, height - 25)
+# # #     draw_black_square(c, width - 25, height - 25)
+# # #     draw_black_square(c, 10, 10)
+# # #     draw_black_square(c, width - 25, 10)
 
-#         c.setFont("Helvetica-Bold", 12)
-#         c.drawString(current_x, y, f"Subject: {subject.sub_name}")
-#         y -= 30
 
-#         for _ in range(subject.question_count):
+# # # # =============================
+# # # # MAIN OMR GENERATOR
+# # # # =============================
+# # # def generate_pro_omr(exam):
 
-#             if y < bottom_limit:
-#                 if current_x == left_x:
-#                     current_x = right_x
-#                     y = first_page_start
-#                 else:
-#                     c.showPage()
-#                     total_pages += 1
-#                     draw_alignment_markers(c, width, height)
-#                     current_x = left_x
-#                     y = next_page_start
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-#             c.setFont("Helvetica", 11)
-#             c.drawRightString(current_x + number_width, y - 3, str(q_no))
+# # #     width, height = A4
+# # #     total_pages = 1
+# # #     is_first_page = True
 
-#             bubble_x = current_x + number_width + 20
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y)
-#                 bubble_x += bubble_spacing
+# # #     # =============================
+# # #     # FIRST PAGE HEADER
+# # #     # =============================
+# # #     draw_alignment_markers(c, width, height)
 
-#             y -= row_height
-#             q_no += 1
+# # #     c.setFont("Helvetica-Bold", 15)
+# # #     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#         y -= 20
+# # #     c.setFont("Helvetica", 12)
+# # #     c.drawString(60, height - 70, "Name: ____________________________")
+# # #     c.drawString(60, height - 95, "Date: ____________________________")
 
-#     c.save()
-#     buffer.seek(0)
+# # #     # Exam Set
+# # #     c.setFont("Helvetica-Bold", 12)
+# # #     c.drawString(60, height - 130, "Exam Set:")
 
-#     return buffer, total_pages
+# # #     set_x = 160
+# # #     for i in range(1, exam.exam_set + 1):
+# # #         c.drawCentredString(set_x, height - 145, str(i))
+# # #         draw_bubble(c, set_x, height - 165)
+# # #         set_x += 35
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # #     # Roll No
+# # #     c.setFont("Helvetica-Bold", 12)
+# # #     c.drawString(60, height - 200, "Roll No:")
 
+# # #     col_x = 160
+# # #     for _ in range(exam.roll_no_digit):
+# # #         y_roll = height - 225
+# # #         for num in range(10):
+# # #             c.setFont("Helvetica", 9)
+# # #             c.drawRightString(col_x - 12, y_roll - 3, str(num))
+# # #             draw_bubble(c, col_x, y_roll)
+# # #             y_roll -= 20
+# # #         col_x += 50
 
-# def draw_bubble(c, x, y, radius=7):
-#     c.setLineWidth(1.3)
-#     c.circle(x, y, radius)
+# # #     # =============================
+# # #     # QUESTION GRID CONFIG
+# # #     # =============================
+# # #     left_x = 100
+# # #     right_x = width - 250
 
+# # #     first_page_start = height - 430
+# # #     next_page_start = height - 120
 
-# def draw_black_square(c, x, y, size=15):
-#     c.rect(x, y, size, size, fill=1)
+# # #     bottom_limit = 60
+# # #     row_height = 28
+# # #     number_width = 25
+# # #     bubble_spacing = 35
 
+# # #     current_x = left_x
+# # #     y = first_page_start
+# # #     q_no = 1
 
-# def draw_alignment_markers(c, width, height):
-#     draw_black_square(c, 10, height - 25)
-#     draw_black_square(c, width - 25, height - 25)
-#     draw_black_square(c, 10, 10)
-#     draw_black_square(c, width - 25, 10)
+# # #     # =============================
+# # #     # DRAW QUESTIONS
+# # #     # =============================
+# # #     for subject in exam.subjects:
 
+# # #         # Handle subject title placement
+# # #         if y < bottom_limit:
 
-# def generate_pro_omr(exam):
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # #             if current_x == left_x:
+# # #                 current_x = right_x
+# # #                 y = first_page_start if is_first_page else next_page_start
+# # #             else:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 draw_alignment_markers(c, width, height)
+# # #                 is_first_page = False
+# # #                 current_x = left_x
+# # #                 y = next_page_start
 
-#     width, height = A4
+# # #         # Draw subject title
+# # #         c.setFont("Helvetica-Bold", 12)
+# # #         c.drawString(current_x, y, f"Subject: {subject.sub_name}")
+# # #         y -= 30
 
-#     # ===============================
-#     # PAGE 1 HEADER
-#     # ===============================
-#     draw_alignment_markers(c, width, height)
+# # #         for _ in range(subject.question_count):
 
-#     c.setFont("Helvetica-Bold", 15)
-#     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # #             if y < bottom_limit:
 
-#     c.setFont("Helvetica", 12)
-#     c.drawString(60, height - 70, "Name: ____________________________")
-#     c.drawString(60, height - 95, "Date: ____________________________")
+# # #                 if current_x == left_x:
+# # #                     current_x = right_x
+# # #                     y = first_page_start if is_first_page else next_page_start
+# # #                 else:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     draw_alignment_markers(c, width, height)
+# # #                     is_first_page = False
+# # #                     current_x = left_x
+# # #                     y = next_page_start
 
-#     c.setFont("Helvetica-Bold", 12)
-#     c.drawString(60, height - 130, "Exam Set:")
+# # #             # Draw question number
+# # #             c.setFont("Helvetica", 11)
+# # #             c.drawRightString(current_x + number_width, y - 3, str(q_no))
 
-#     set_x = 160
-#     for i in range(1, exam.exam_set + 1):
-#         c.drawCentredString(set_x, height - 145, str(i))
-#         draw_bubble(c, set_x, height - 165)
-#         set_x += 35
+# # #             # Draw bubbles
+# # #             bubble_x = current_x + number_width + 20
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y)
+# # #                 bubble_x += bubble_spacing
 
-#     c.setFont("Helvetica-Bold", 12)
-#     c.drawString(60, height - 200, "Roll No:")
+# # #             y -= row_height
+# # #             q_no += 1
 
-#     col_x = 160
-#     for _ in range(exam.roll_no_digit):
-#         y_roll = height - 225
-#         for num in range(10):
-#             c.setFont("Helvetica", 9)
-#             c.drawRightString(col_x - 12, y_roll - 3, str(num))
-#             draw_bubble(c, col_x, y_roll)
-#             y_roll -= 20
-#         col_x += 50
+# # #         y -= 20
 
-#     # ===============================
-#     # QUESTION LAYOUT
-#     # ===============================
-#     left_col_x = 100
-#     right_col_x = width - 250
+# # #     # =============================
+# # #     # FINISH
+# # #     # =============================
+# # #     c.save()
+# # #     buffer.seek(0)
 
-#     first_page_start = height - 430
-#     other_page_start = height - 120
+# # #     return buffer, total_pages
 
-#     bottom_limit = 70
-#     row_height = 28
-#     number_width = 25
-#     bubble_spacing = 35
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-#     current_x = left_col_x
-#     y = first_page_start
-#     q_no = 1
 
-#     for subject in exam.subjects:
+# # # def draw_bubble(c, x, y, radius=7):
+# # #     c.setLineWidth(1.3)
+# # #     c.circle(x, y, radius)
 
-#         # ---- Check before subject title ----
-#         if y < bottom_limit:
-#             if current_x == left_col_x:
-#                 current_x = right_col_x
-#                 y = first_page_start
-#             else:
-#                 c.showPage()
-#                 draw_alignment_markers(c, width, height)
-#                 current_x = left_col_x
-#                 y = other_page_start
 
-#         c.setFont("Helvetica-Bold", 12)
-#         c.drawString(current_x, y, f"Subject: {subject.sub_name}")
-#         y -= 30
+# # # def draw_black_square(c, x, y, size=15):
+# # #     c.rect(x, y, size, size, fill=1)
 
-#         for _ in range(subject.question_count):
 
-#             # ---- Check before drawing question ----
-#             if y < bottom_limit:
-#                 if current_x == left_col_x:
-#                     current_x = right_col_x
-#                     y = first_page_start if q_no <= 20 else other_page_start
-#                 else:
-#                     c.showPage()
-#                     draw_alignment_markers(c, width, height)
-#                     current_x = left_col_x
-#                     y = other_page_start
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 10, height - 25)
+# # #     draw_black_square(c, width - 25, height - 25)
+# # #     draw_black_square(c, 10, 10)
+# # #     draw_black_square(c, width - 25, 10)
 
-#             c.setFont("Helvetica", 11)
-#             c.drawRightString(current_x + number_width, y - 3, str(q_no))
+# # # def generate_pro_omr(exam):
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-#             bubble_x = current_x + number_width + 20
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y)
-#                 bubble_x += bubble_spacing
+# # #     width, height = A4
+# # #     total_pages = 1
 
-#             y -= row_height
-#             q_no += 1
+# # #     # ================= FIRST PAGE =================
+# # #     draw_alignment_markers(c, width, height)
 
-#         y -= 20
+# # #     c.setFont("Helvetica-Bold", 15)
+# # #     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#     c.save()
-#     buffer.seek(0)
-#     return buffer
+# # #     c.setFont("Helvetica", 12)
+# # #     c.drawString(60, height - 70, "Name: ____________________________")
+# # #     c.drawString(60, height - 95, "Date: ____________________________")
 
+# # #     c.setFont("Helvetica-Bold", 12)
+# # #     c.drawString(60, height - 130, "Exam Set:")
 
+# # #     set_x = 160
+# # #     for i in range(1, exam.exam_set + 1):
+# # #         c.drawCentredString(set_x, height - 145, str(i))
+# # #         draw_bubble(c, set_x, height - 165)
+# # #         set_x += 35
 
+# # #     c.setFont("Helvetica-Bold", 12)
+# # #     c.drawString(60, height - 200, "Roll No:")
 
+# # #     col_x = 160
+# # #     for _ in range(exam.roll_no_digit):
+# # #         y_roll = height - 225
+# # #         for num in range(10):
+# # #             c.setFont("Helvetica", 9)
+# # #             c.drawRightString(col_x - 12, y_roll - 3, str(num))
+# # #             draw_bubble(c, col_x, y_roll)
+# # #             y_roll -= 20
+# # #         col_x += 50
 
-# from reportlab.pdfgen import canvas
-# from reportlab.lib.pagesizes import A4
-# from io import BytesIO
+# # #     # ================= QUESTION GRID =================
+# # #     left_x = 100
+# # #     right_x = width - 250
 
+# # #     first_page_start = height - 430
+# # #     next_page_start = height - 120   # No empty space
 
-# # -----------------------------
-# # Drawing Helpers
-# # -----------------------------
-# def draw_bubble(c, x, y, radius=7):
-#     c.setLineWidth(1.3)
-#     c.circle(x, y, radius)
+# # #     bottom_limit = 70
+# # #     row_height = 28
+# # #     number_width = 25
+# # #     bubble_spacing = 35
 
+# # #     current_x = left_x
+# # #     y = first_page_start
+# # #     q_no = 1
 
-# def draw_black_square(c, x, y, size=15):
-#     c.rect(x, y, size, size, fill=1)
+# # #     for subject in exam.subjects:
 
+# # #         # If no space for subject title
+# # #         if y < bottom_limit:
+# # #             if current_x == left_x:
+# # #                 current_x = right_x
+# # #                 y = first_page_start
+# # #             else:
+# # #                 c.showPage()
+# # #                 total_pages += 1
+# # #                 draw_alignment_markers(c, width, height)
+# # #                 current_x = left_x
+# # #                 y = next_page_start   # Start higher on new page
 
-# # -----------------------------
-# # Main OMR Generator
-# # -----------------------------
-# def generate_pro_omr(exam):
-#     buffer = BytesIO()
-#     c = canvas.Canvas(buffer, pagesize=A4)
+# # #         c.setFont("Helvetica-Bold", 12)
+# # #         c.drawString(current_x, y, f"Subject: {subject.sub_name}")
+# # #         y -= 30
 
-#     width, height = A4
+# # #         for _ in range(subject.question_count):
 
-#     # -----------------------------
-#     # HEADER
-#     # -----------------------------
-#     def draw_header():
-#         draw_black_square(c, 10, height - 25)
-#         draw_black_square(c, width - 25, height - 25)
-#         draw_black_square(c, 10, 10)
-#         draw_black_square(c, width - 25, 10)
+# # #             if y < bottom_limit:
+# # #                 if current_x == left_x:
+# # #                     current_x = right_x
+# # #                     y = first_page_start
+# # #                 else:
+# # #                     c.showPage()
+# # #                     total_pages += 1
+# # #                     draw_alignment_markers(c, width, height)
+# # #                     current_x = left_x
+# # #                     y = next_page_start
 
-#         c.setFont("Helvetica-Bold", 15)
-#         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+# # #             c.setFont("Helvetica", 11)
+# # #             c.drawRightString(current_x + number_width, y - 3, str(q_no))
 
-#         c.setFont("Helvetica", 12)
-#         c.drawString(60, height - 70, "Name: ____________________________")
-#         c.drawString(60, height - 95, "Date: ____________________________")
+# # #             bubble_x = current_x + number_width + 20
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y)
+# # #                 bubble_x += bubble_spacing
 
-#         # Exam Set
-#         c.setFont("Helvetica-Bold", 12)
-#         c.drawString(60, height - 130, "Exam Set:")
+# # #             y -= row_height
+# # #             q_no += 1
 
-#         set_x = 160
-#         for i in range(1, exam.exam_set + 1):
-#             c.setFont("Helvetica", 11)
-#             c.drawCentredString(set_x, height - 145, str(i))
-#             draw_bubble(c, set_x, height - 165)
-#             set_x += 35
+# # #         y -= 20
 
-#         # Roll No
-#         c.setFont("Helvetica-Bold", 12)
-#         c.drawString(60, height - 200, "Roll No:")
+# # #     c.save()
+# # #     buffer.seek(0)
 
-#         col_x = 160
-#         for _ in range(exam.roll_no_digit):
-#             y_roll = height - 225
-#             for num in range(10):
-#                 c.setFont("Helvetica", 9)
-#                 c.drawRightString(col_x - 12, y_roll - 3, str(num))
-#                 draw_bubble(c, col_x, y_roll)
-#                 y_roll -= 20
-#             col_x += 50
+# # #     return buffer, total_pages
 
-#     draw_header()
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
 
-#     # -----------------------------
-#     # QUESTION GRID CONFIG
-#     # -----------------------------
-#     left_col_x = 100
-#     right_col_x = width - 250
 
-#     start_y = height - 430
-#     bottom_limit = 70
+# # # def draw_bubble(c, x, y, radius=7):
+# # #     c.setLineWidth(1.3)
+# # #     c.circle(x, y, radius)
 
-#     row_height = 28
-#     number_width = 25
-#     bubble_spacing = 35
 
-#     current_x = left_col_x
-#     y = start_y
-#     q_no = 1
+# # # def draw_black_square(c, x, y, size=15):
+# # #     c.rect(x, y, size, size, fill=1)
 
-#     # -----------------------------
-#     # Draw Questions
-#     # -----------------------------
-#     for subject in exam.subjects:
 
-#         if y < bottom_limit:
-#             if current_x == left_col_x:
-#                 current_x = right_col_x
-#                 y = start_y
-#             else:
-#                 c.showPage()
-#                 draw_header()
-#                 current_x = left_col_x
-#                 y = start_y
+# # # def draw_alignment_markers(c, width, height):
+# # #     draw_black_square(c, 10, height - 25)
+# # #     draw_black_square(c, width - 25, height - 25)
+# # #     draw_black_square(c, 10, 10)
+# # #     draw_black_square(c, width - 25, 10)
 
-#         c.setFont("Helvetica-Bold", 12)
-#         c.drawString(current_x, y, f"Subject: {subject.sub_name}")
-#         y -= 30
 
-#         for _ in range(subject.question_count):
+# # # def generate_pro_omr(exam):
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
 
-#             if y < bottom_limit:
-#                 if current_x == left_col_x:
-#                     current_x = right_col_x
-#                     y = start_y
-#                 else:
-#                     c.showPage()
-#                     draw_header()
-#                     current_x = left_col_x
-#                     y = start_y
+# # #     width, height = A4
 
-#             # 🔥 PERFECT TEXT ALIGNMENT (FIXED)
-#             c.setFont("Helvetica", 11)
-#             c.drawRightString(current_x + number_width, y - 3, str(q_no))
+# # #     # ===============================
+# # #     # PAGE 1 HEADER
+# # #     # ===============================
+# # #     draw_alignment_markers(c, width, height)
 
-#             # Bubbles
-#             bubble_x = current_x + number_width + 20
-#             for _ in range(4):
-#                 draw_bubble(c, bubble_x, y)
-#                 bubble_x += bubble_spacing
+# # #     c.setFont("Helvetica-Bold", 15)
+# # #     c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
 
-#             y -= row_height
-#             q_no += 1
+# # #     c.setFont("Helvetica", 12)
+# # #     c.drawString(60, height - 70, "Name: ____________________________")
+# # #     c.drawString(60, height - 95, "Date: ____________________________")
 
-#         y -= 20
+# # #     c.setFont("Helvetica-Bold", 12)
+# # #     c.drawString(60, height - 130, "Exam Set:")
 
-#     c.save()
-#     buffer.seek(0)
-#     return buffer
+# # #     set_x = 160
+# # #     for i in range(1, exam.exam_set + 1):
+# # #         c.drawCentredString(set_x, height - 145, str(i))
+# # #         draw_bubble(c, set_x, height - 165)
+# # #         set_x += 35
+
+# # #     c.setFont("Helvetica-Bold", 12)
+# # #     c.drawString(60, height - 200, "Roll No:")
+
+# # #     col_x = 160
+# # #     for _ in range(exam.roll_no_digit):
+# # #         y_roll = height - 225
+# # #         for num in range(10):
+# # #             c.setFont("Helvetica", 9)
+# # #             c.drawRightString(col_x - 12, y_roll - 3, str(num))
+# # #             draw_bubble(c, col_x, y_roll)
+# # #             y_roll -= 20
+# # #         col_x += 50
+
+# # #     # ===============================
+# # #     # QUESTION LAYOUT
+# # #     # ===============================
+# # #     left_col_x = 100
+# # #     right_col_x = width - 250
+
+# # #     first_page_start = height - 430
+# # #     other_page_start = height - 120
+
+# # #     bottom_limit = 70
+# # #     row_height = 28
+# # #     number_width = 25
+# # #     bubble_spacing = 35
+
+# # #     current_x = left_col_x
+# # #     y = first_page_start
+# # #     q_no = 1
+
+# # #     for subject in exam.subjects:
+
+# # #         # ---- Check before subject title ----
+# # #         if y < bottom_limit:
+# # #             if current_x == left_col_x:
+# # #                 current_x = right_col_x
+# # #                 y = first_page_start
+# # #             else:
+# # #                 c.showPage()
+# # #                 draw_alignment_markers(c, width, height)
+# # #                 current_x = left_col_x
+# # #                 y = other_page_start
+
+# # #         c.setFont("Helvetica-Bold", 12)
+# # #         c.drawString(current_x, y, f"Subject: {subject.sub_name}")
+# # #         y -= 30
+
+# # #         for _ in range(subject.question_count):
+
+# # #             # ---- Check before drawing question ----
+# # #             if y < bottom_limit:
+# # #                 if current_x == left_col_x:
+# # #                     current_x = right_col_x
+# # #                     y = first_page_start if q_no <= 20 else other_page_start
+# # #                 else:
+# # #                     c.showPage()
+# # #                     draw_alignment_markers(c, width, height)
+# # #                     current_x = left_col_x
+# # #                     y = other_page_start
+
+# # #             c.setFont("Helvetica", 11)
+# # #             c.drawRightString(current_x + number_width, y - 3, str(q_no))
+
+# # #             bubble_x = current_x + number_width + 20
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y)
+# # #                 bubble_x += bubble_spacing
+
+# # #             y -= row_height
+# # #             q_no += 1
+
+# # #         y -= 20
+
+# # #     c.save()
+# # #     buffer.seek(0)
+# # #     return buffer
+
+
+
+
+
+# # # from reportlab.pdfgen import canvas
+# # # from reportlab.lib.pagesizes import A4
+# # # from io import BytesIO
+
+
+# # # # -----------------------------
+# # # # Drawing Helpers
+# # # # -----------------------------
+# # # def draw_bubble(c, x, y, radius=7):
+# # #     c.setLineWidth(1.3)
+# # #     c.circle(x, y, radius)
+
+
+# # # def draw_black_square(c, x, y, size=15):
+# # #     c.rect(x, y, size, size, fill=1)
+
+
+# # # # -----------------------------
+# # # # Main OMR Generator
+# # # # -----------------------------
+# # # def generate_pro_omr(exam):
+# # #     buffer = BytesIO()
+# # #     c = canvas.Canvas(buffer, pagesize=A4)
+
+# # #     width, height = A4
+
+# # #     # -----------------------------
+# # #     # HEADER
+# # #     # -----------------------------
+# # #     def draw_header():
+# # #         draw_black_square(c, 10, height - 25)
+# # #         draw_black_square(c, width - 25, height - 25)
+# # #         draw_black_square(c, 10, 10)
+# # #         draw_black_square(c, width - 25, 10)
+
+# # #         c.setFont("Helvetica-Bold", 15)
+# # #         c.drawCentredString(width / 2, height - 40, f"Exam: {exam.exam_name}")
+
+# # #         c.setFont("Helvetica", 12)
+# # #         c.drawString(60, height - 70, "Name: ____________________________")
+# # #         c.drawString(60, height - 95, "Date: ____________________________")
+
+# # #         # Exam Set
+# # #         c.setFont("Helvetica-Bold", 12)
+# # #         c.drawString(60, height - 130, "Exam Set:")
+
+# # #         set_x = 160
+# # #         for i in range(1, exam.exam_set + 1):
+# # #             c.setFont("Helvetica", 11)
+# # #             c.drawCentredString(set_x, height - 145, str(i))
+# # #             draw_bubble(c, set_x, height - 165)
+# # #             set_x += 35
+
+# # #         # Roll No
+# # #         c.setFont("Helvetica-Bold", 12)
+# # #         c.drawString(60, height - 200, "Roll No:")
+
+# # #         col_x = 160
+# # #         for _ in range(exam.roll_no_digit):
+# # #             y_roll = height - 225
+# # #             for num in range(10):
+# # #                 c.setFont("Helvetica", 9)
+# # #                 c.drawRightString(col_x - 12, y_roll - 3, str(num))
+# # #                 draw_bubble(c, col_x, y_roll)
+# # #                 y_roll -= 20
+# # #             col_x += 50
+
+# # #     draw_header()
+
+# # #     # -----------------------------
+# # #     # QUESTION GRID CONFIG
+# # #     # -----------------------------
+# # #     left_col_x = 100
+# # #     right_col_x = width - 250
+
+# # #     start_y = height - 430
+# # #     bottom_limit = 70
+
+# # #     row_height = 28
+# # #     number_width = 25
+# # #     bubble_spacing = 35
+
+# # #     current_x = left_col_x
+# # #     y = start_y
+# # #     q_no = 1
+
+# # #     # -----------------------------
+# # #     # Draw Questions
+# # #     # -----------------------------
+# # #     for subject in exam.subjects:
+
+# # #         if y < bottom_limit:
+# # #             if current_x == left_col_x:
+# # #                 current_x = right_col_x
+# # #                 y = start_y
+# # #             else:
+# # #                 c.showPage()
+# # #                 draw_header()
+# # #                 current_x = left_col_x
+# # #                 y = start_y
+
+# # #         c.setFont("Helvetica-Bold", 12)
+# # #         c.drawString(current_x, y, f"Subject: {subject.sub_name}")
+# # #         y -= 30
+
+# # #         for _ in range(subject.question_count):
+
+# # #             if y < bottom_limit:
+# # #                 if current_x == left_col_x:
+# # #                     current_x = right_col_x
+# # #                     y = start_y
+# # #                 else:
+# # #                     c.showPage()
+# # #                     draw_header()
+# # #                     current_x = left_col_x
+# # #                     y = start_y
+
+# # #             # 🔥 PERFECT TEXT ALIGNMENT (FIXED)
+# # #             c.setFont("Helvetica", 11)
+# # #             c.drawRightString(current_x + number_width, y - 3, str(q_no))
+
+# # #             # Bubbles
+# # #             bubble_x = current_x + number_width + 20
+# # #             for _ in range(4):
+# # #                 draw_bubble(c, bubble_x, y)
+# # #                 bubble_x += bubble_spacing
+
+# # #             y -= row_height
+# # #             q_no += 1
+
+# # #         y -= 20
+
+# # #     c.save()
+# # #     buffer.seek(0)
+# # #     return buffer

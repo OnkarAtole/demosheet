@@ -70,6 +70,9 @@ def create_exam(
         no_of_subject=len(exam_data.subjects)
     )
 
+    total_q = sum(sub.question_count for sub in exam_data.subjects)
+    new_exam.total_pages = 2 if total_q > 146 else 1
+
     db.add(new_exam)
     db.flush()
 
@@ -145,6 +148,7 @@ def get_exams(
             "exam_set": exam.exam_set,
             "class_name": exam.class_ref.classname,
             "student_count": student_count,
+            "total_pages": exam.total_pages or 1,
             "subjects": [
                 {
                     "name": sub.sub_name,

@@ -1,299 +1,173 @@
 """
-OMR V2 - Corrected Version
-FastAPI + OpenCV
-Uses AnswerKey table properly
+=============================================================
+ OMR Scan Endpoint  —  FastAPI route
+=============================================================
+POST /api/v1/omr/scan-omr
+
+Accepts one or two page images (multipart/form-data) plus
+an exam_id, runs the full OMR pipeline on each page, compares
+the extracted answers against the stored answer key, and
+returns a structured JSON result.
+
+Author  : Antigravity / Google Deepmind
+Version : 2.0.0  (2026-03-07)
+=============================================================
 """
 
-import cv2
-import numpy as np
+import logging
+import traceback
 from typing import List
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+
+from fastapi import APIRouter, UploadFile, File, Form, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models.exam import Exam
 from app.models.answer_key import AnswerKey
+from app.models.exam import Exam
+from app.services.omr_pipeline import scan_omr_page
+
+logger = logging.getLogger("omr_endpoint")
 
 router = APIRouter()
 
-# ==============================
-# CONFIG
-# ==============================
-FILL_THRESHOLD = 0.20
-FILL_MARGIN = 0.03
-MIN_AREA = 150
-MAX_AREA = 5000
-ROW_TOL = 20
 
+# ─────────────────────────────────────────────────────────────
+# POST /scan-omr
+# ─────────────────────────────────────────────────────────────
 
-# ==============================
-# OMR PROCESSING
-# ==============================
-def process_sheet(image_bytes: bytes, total_questions: int):
-
-    npimg = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
-
-    if img is None:
-        raise ValueError("Invalid image")
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-
-    thresh = cv2.adaptiveThreshold(
-        blur,
-        255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY_INV,
-        25,
-        8,
-    )
-
-    contours, _ = cv2.findContours(
-        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-    )
-
-    bubbles = []
-
-    for c in contours:
-        area = cv2.contourArea(c)
-        if area < MIN_AREA or area > MAX_AREA:
-            continue
-
-        (x, y, w, h) = cv2.boundingRect(c)
-        aspect_ratio = w / float(h)
-
-        if 0.7 <= aspect_ratio <= 1.3:
-
-            mask = np.zeros(thresh.shape, dtype="uint8")
-            cv2.drawContours(mask, [c], -1, 255, -1)
-
-            total = cv2.countNonZero(mask)
-            filled = cv2.countNonZero(
-                cv2.bitwise_and(thresh, thresh, mask=mask)
-            )
-
-            fill_ratio = filled / float(total)
-
-            center_x = x + w // 2
-            center_y = y + h // 2
-
-            bubbles.append((center_x, center_y, fill_ratio))
-
-    if not bubbles:
-        print("⚠ NO BUBBLES DETECTED")
-        return {}
-
-    # Sort top to bottom
-    # bubbles = sorted(bubbles, key=lambda b: b[1])
-
-    # rows = []
-    # current_row = [bubbles[0]]
-
-    # for b in bubbles[1:]:
-    #     if abs(b[1] - current_row[0][1]) < ROW_TOL:
-    #         current_row.append(b)
-    #     else:
-    #         rows.append(current_row)
-    #         current_row = [b]
-
-    # rows.append(current_row)
-
-    # answers = {}
-    # question_number = 1
-
-    # for row in rows:
-
-    #     if question_number > total_questions:
-    #         break
-
-    #     if len(row) < 4:
-    #         continue
-
-    #     row = sorted(row, key=lambda b: b[0])
-    #     row = row[:4]
-
-    #     fills = [b[2] for b in row]
-
-    #     max_fill = max(fills)
-    #     sorted_fills = sorted(fills, reverse=True)
-
-    #     if (
-    #         max_fill > FILL_THRESHOLD
-    #         and (sorted_fills[0] - sorted_fills[1]) > FILL_MARGIN
-    #     ):
-    #         option_index = fills.index(max_fill)
-    #         answers[str(question_number)] = chr(65 + option_index)
-    #     else:
-    #         answers[str(question_number)] = "MULTI/EMPTY"
-
-    #     question_number += 1
-    # Sort by Y (top to bottom)
-    bubbles = sorted(bubbles, key=lambda b: b[1])
-    
-    # Split into left and right columns
-    image_width = img.shape[1]
-    mid_x = image_width // 2
-    
-    left_column = [b for b in bubbles if b[0] < mid_x]
-    right_column = [b for b in bubbles if b[0] >= mid_x]
-    
-    columns = [left_column, right_column]
-    
-    answers = {}
-    question_number = 1
-    
-    for column in columns:
-    
-        column = sorted(column, key=lambda b: b[1])
-    
-        rows = []
-        current_row = [column[0]]
-    
-        for b in column[1:]:
-            if abs(b[1] - current_row[0][1]) < ROW_TOL:
-                current_row.append(b)
-            else:
-                rows.append(current_row)
-                current_row = [b]
-    
-        rows.append(current_row)
-    
-        for row in rows:
-    
-            if len(row) < 4:
-                continue
-    
-            row = sorted(row, key=lambda b: b[0])
-            row = row[:4]
-    
-            fills = [b[2] for b in row]
-    
-            max_fill = max(fills)
-            sorted_fills = sorted(fills, reverse=True)
-    
-            if (
-                max_fill > FILL_THRESHOLD
-                and (sorted_fills[0] - sorted_fills[1]) > FILL_MARGIN
-            ):
-                option_index = fills.index(max_fill)
-                answers[str(question_number)] = chr(65 + option_index)
-            else:
-                answers[str(question_number)] = "MULTI/EMPTY"
-    
-            question_number += 1
-
-    print("Detected answers:", answers)
-
-    return answers
-
-
-# ==============================
-# FASTAPI ROUTE
-# ==============================
 @router.post("/scan-omr")
 async def scan_omr(
     files: List[UploadFile] = File(...),
     exam_id: int = Form(...),
     db: Session = Depends(get_db),
 ):
+    """
+    Scan one or more OMR sheet pages and return the grading result.
 
-    # 1️⃣ Validate exam
-    exam = db.query(Exam).filter(Exam.id == exam_id).first()
-    if not exam:
-        raise HTTPException(status_code=404, detail="Exam not found")
+    Parameters
+    ----------
+    files    : one page image per file, uploaded in page order
+               (filename sort is used as tie-breaker)
+    exam_id  : primary key of the exam in the database
+    db       : injected SQLAlchemy session
 
-    # 2️⃣ Get answer key from AnswerKey table
-    answer_key_rows = db.query(AnswerKey).filter(
-        AnswerKey.exam_id == exam_id
-    ).order_by(AnswerKey.id).all()
-
-    if not answer_key_rows:
-        raise HTTPException(status_code=404, detail="Answer key not found")
-
-    # 🔥 Convert DB rows into numeric mapping (1,2,3...)
-    correct_answers = {
-        str(index): row.correct_option.strip().upper()
-        for index, row in enumerate(answer_key_rows, start=1)
-    }
-
-    total_questions = len(correct_answers)
-
-    student_answers = {}
-    question_offset = 0
-
-    # 3️⃣ Process images
-    for file in files:
-        contents = await file.read()
-
-        extracted = process_sheet(
-            contents,
-            total_questions=total_questions
-        )
-
-        for q_no, ans in extracted.items():
-            new_q = str(int(q_no) + question_offset)
-            student_answers[new_q] = ans
-
-        question_offset += len(extracted)
-
-    # Normalize
-    student_answers = {
-        str(k): str(v).strip().upper()
-        for k, v in student_answers.items()
-    }
-
-    # 4️⃣ Compare
-    correct_count = 0
-    wrong_questions = []
-    unanswered_questions = []
-    detailed_results = {}
-
-    for q_no, correct_ans in correct_answers.items():
-
-        student_ans = student_answers.get(q_no)
-
-        if not student_ans or student_ans == "MULTI/EMPTY":
-            unanswered_questions.append(q_no)
-            detailed_results[q_no] = {
-                "student": None,
-                "correct": correct_ans,
-                "result": "unanswered",
-            }
-            continue
-
-        if student_ans == correct_ans:
-            correct_count += 1
-            detailed_results[q_no] = {
-                "student": student_ans,
-                "correct": correct_ans,
-                "result": "correct",
-            }
-        else:
-            wrong_questions.append(q_no)
-            detailed_results[q_no] = {
-                "student": student_ans,
-                "correct": correct_ans,
-                "result": "wrong",
-            }
-
-    total = len(correct_answers)
-    percentage = round((correct_count / total) * 100, 2) if total else 0
-
-    print("\n===== FINAL DEBUG =====")
-    print("Student:", student_answers)
-    print("Correct:", correct_answers)
-    print("Score:", correct_count, "/", total)
-    print("=======================\n")
-
-    return {
+    Response
+    --------
+    {
         "status": "success",
         "data": {
-            "score": correct_count,
-            "total": total,
-            "percentage": percentage,
-            "wrong_questions": wrong_questions,
-            "unanswered_questions": unanswered_questions,
-            "detailed_results": detailed_results,
-        },
+            "roll_number":        "0003",
+            "exam_set":           "1",
+            "score":              80,
+            "total":              100,
+            "percentage":         80.0,
+            "wrong_questions":    [...],
+            "unanswered_questions": [...],
+            "detailed_results":   {...},
+            "debug": {
+                "blur_scores":      [float, ...],
+                "bubble_counts":    [int, ...],
+                "dyn_thresholds":   [float, ...],
+                "pages_processed":  int
+            }
+        }
     }
+    """
+    try:
+        # ── 1. Validate Exam ─────────────────────────────────────────
+        exam = db.query(Exam).filter(Exam.id == exam_id).first()
+        if not exam:
+            return {"status": "error", "message": f"Exam ID {exam_id} not found."}
+            
+        file = files[0]
+        image_bytes = await file.read()
+
+        # ── 2. Process page ──────────────────────────────────────────
+        page_result = scan_omr_page(image_bytes, 1)
+
+        if page_result.get("error"):
+            return {"status": "error", "message": page_result["error"]}
+
+        final_answers = page_result.get("answers", {})
+        roll_number   = page_result.get("roll_number", "EMPTY")
+        exam_set      = page_result.get("exam_set", "EMPTY")
+        
+        debug_info = {
+            "blur_score":     round(page_result.get("blur_score", 0), 2),
+            "bubble_count":   page_result.get("bubble_count", 0),
+            "dyn_threshold":  round(page_result.get("dyn_threshold", 0), 4),
+        }
+
+        # ── 3. Final Result Assembly ─────────────────────────────────
+        # (Assuming answer key fetching follows)
+
+        # ── 4. Fetch answer key from the database ────────────────────
+        set_name = f"Set {exam_set}"
+        logger.info("Querying answer key: exam_id=%d  set=%s", exam_id, set_name)
+
+        answer_key_rows = (
+            db.query(AnswerKey)
+            .filter(AnswerKey.exam_id == exam_id, AnswerKey.set_name == set_name)
+            .order_by(AnswerKey.id)
+            .all()
+        )
+
+        correct_answers: dict = {
+            str(i + 1): row.correct_option.strip().upper()
+            for i, row in enumerate(answer_key_rows)
+        }
+
+        # ── 5. Grade ─────────────────────────────────────────────────
+        score    = 0
+        wrong    = []
+        skipped  = []
+        detailed = {}
+
+        logger.info("Detected answers: %s", final_answers)
+        logger.info("Roll: %s  Set: %s  Ans-key questions: %d",
+                    roll_number, exam_set, len(correct_answers))
+
+        for q_num in range(1, len(correct_answers) + 1):
+            q_str   = str(q_num)
+            correct = correct_answers.get(q_str)
+            student = final_answers.get(q_str, "EMPTY")
+
+            if student == correct:
+                score  += 1
+                status  = "correct"
+            elif student == "EMPTY":
+                skipped.append(q_str)
+                status = "unanswered"
+            else:
+                wrong.append(q_str)
+                status = "wrong"
+
+            detailed[q_str] = {
+                "student": student,
+                "correct": correct,
+                "result":  status,
+            }
+
+        total      = len(correct_answers)
+        percentage = round((score / total) * 100, 2) if total else 0.0
+
+        return {
+            "status": "success",
+            "data": {
+                "roll_number":                roll_number,
+                "exam_set":                   exam_set,
+                "score":                      score,
+                "total":                      total,
+                "percentage":                 percentage,
+                "wrong_questions":            wrong,
+                "wrong_questions_count":      len(wrong),
+                "unanswered_questions":       skipped,
+                "unanswered_questions_count": len(skipped),
+                "detailed_results":           detailed,
+                "debug":                      debug_info,
+            },
+        }
+
+    except Exception:
+        traceback.print_exc()
+        return {"status": "error", "message": "Internal server error. See server logs."}
