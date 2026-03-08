@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import math
 import os
+import traceback
 import logging
 from typing import Dict, List, Optional, Tuple
 
@@ -37,6 +38,9 @@ logger = logging.getLogger("omr_pipeline")
 # ─────────────────────────────────────────────────────────────
 # CONSTANTS — tuned for 4:3, ≥1600 px wide images
 # ─────────────────────────────────────────────────────────────
+
+CANONICAL_WIDTH     = 1600   # Warped image is ALWAYS resized to this width
+                             # so bubble-area filters work at any capture distance
 
 BLUR_THRESHOLD      = 80.0   # Laplacian variance; below → blurry
 CLAHE_CLIP_LIMIT    = 2.0
@@ -72,7 +76,7 @@ OMR_LAYOUT: List[dict] = [
     {"start": 106, "count": 41, "roi": (0.77, 0.94), "y_start": 0.12},
 ]
 
-DEBUG_PATH = "last_processed_debug.png"
+DEBUG_PATH = "last_processed_debug.png"  # Fallback; overridden per-page below
 
 # ─────────────────────────────────────────────────────────────
 # STAGE 1 — Decode
@@ -200,6 +204,24 @@ def perspective_transform(img: np.ndarray,
 
     M = cv2.getPerspectiveTransform(corners, dst)
     return cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+
+
+def normalize_warped_size(img: np.ndarray,
+                          target_width: int = CANONICAL_WIDTH) -> np.ndarray:
+    """
+    Resize the warped image so its width is exactly `target_width`, preserving
+    aspect ratio.  This guarantees that bubble areas stay in the same pixel
+    range regardless of how close or far the camera was when the shot was taken.
+    """
+    h, w = img.shape[:2]
+    if w == target_width:
+        return img
+    scale = target_width / w
+    new_h = int(h * scale)
+    resized = cv2.resize(img, (target_width, new_h), interpolation=cv2.INTER_LINEAR)
+    logger.info("normalize_warped_size: %dx%d → %dx%d (scale %.2f)",
+                w, h, target_width, new_h, scale)
+    return resized
 
 
 # ─────────────────────────────────────────────────────────────
@@ -521,7 +543,11 @@ def _draw_debug(img: np.ndarray,
 
 def scan_omr_page(image_bytes: bytes,
                   page_number: int,
-                  debug_path: str = DEBUG_PATH) -> Dict:
+                  debug_path: str = None) -> Dict:
+    # Build per-page debug path if not explicitly provided
+    if debug_path is None:
+        debug_path = f"last_processed_debug_pg{page_number}.png"
+
     result = {
         "answers": {}, "roll_number": "EMPTY", "exam_set": "EMPTY",
         "blur_score": 0.0, "bubble_count": 0, "dyn_threshold": 0.22, "error": None,
@@ -539,7 +565,12 @@ def scan_omr_page(image_bytes: bytes,
             warped = perspective_transform(img, corners)
         else:
             warped = img
-            
+
+        # ── CRITICAL: Normalize to a canonical width ──────────────
+        # Without this, images captured from far away produce tiny
+        # bubbles that fall below BUBBLE_AREA_MIN and get rejected.
+        warped = normalize_warped_size(warped, CANONICAL_WIDTH)
+
         warped = gamma_correction(warped, GAMMA)
         warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
         thresh = dual_threshold(warped_gray)
@@ -569,8 +600,9 @@ def scan_omr_page(image_bytes: bytes,
         result["exam_set"] = exam_set
 
         # Draw debug
-        debug_img = _draw_debug(warped, bubbles, answers, roll, exam_set, dyn_threshold, 1)
+        debug_img = _draw_debug(warped, bubbles, answers, roll, exam_set, dyn_threshold, page_number)
         cv2.imwrite(debug_path, debug_img)
+        logger.info("Debug image written to %s", debug_path)
 
     except Exception as e:
         logger.error("scan_omr_page failed: %s", traceback.format_exc())
