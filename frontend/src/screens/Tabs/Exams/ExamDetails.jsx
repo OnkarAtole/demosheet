@@ -13,6 +13,7 @@ import { getExamDetail } from "../../../services/examService";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { generateOMR } from "../../../services/examService";
+import { downloadResultsExcel } from "../../../services/examService";
 export default function ExamDetails({ route, navigation }) {
   const { examData } = route.params;
 
@@ -77,6 +78,34 @@ export default function ExamDetails({ route, navigation }) {
       console.log("Download error:", error);
     }
   };
+
+
+  const downloadExcel = async () => {
+  try {
+    const response = await downloadResultsExcel(examData.id);
+
+    // const fileUri = FileSystem.documentDirectory + "results.xlsx";
+    const fileUri = FileSystem.documentDirectory + `${examData.exam_name}_results.xlsx`;
+
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      const base64 = reader.result.split(",")[1];
+
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      await Sharing.shareAsync(fileUri);
+    };
+
+    reader.readAsDataURL(response.data);
+  } catch (error) {
+    console.log("Excel download error:", error);
+  }
+};
+
+
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Exams Details</Text>
@@ -135,15 +164,21 @@ export default function ExamDetails({ route, navigation }) {
           <View style={styles.circle} />
           <Text style={styles.optionText}>Scan Sheet</Text>
         </TouchableOpacity>
-        {renderOption("Download Excel")}
+        {renderOption("Download Excel", downloadExcel)}
         {renderOption("Analysis")}
       </View>
     </View>
   );
 }
 
-const renderOption = (title) => (
-  <TouchableOpacity style={styles.optionBox}>
+// const renderOption = (title) => (
+//   <TouchableOpacity style={styles.optionBox}>
+//     <View style={styles.circle} />
+//     <Text style={styles.optionText}>{title}</Text>
+//   </TouchableOpacity>
+// );
+const renderOption = (title, onPress) => (
+  <TouchableOpacity style={styles.optionBox} onPress={onPress}>
     <View style={styles.circle} />
     <Text style={styles.optionText}>{title}</Text>
   </TouchableOpacity>

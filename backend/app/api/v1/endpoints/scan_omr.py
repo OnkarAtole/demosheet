@@ -25,7 +25,8 @@ from app.db.session import get_db
 from app.models.answer_key import AnswerKey
 from app.models.exam import Exam
 from app.services.omr_pipeline import scan_omr_page
-
+import json
+from app.models.result import Result
 logger = logging.getLogger("omr_endpoint")
 
 router = APIRouter()
@@ -90,6 +91,7 @@ async def scan_omr(
 
         final_answers = page_result.get("answers", {})
         roll_number   = page_result.get("roll_number", "EMPTY")
+        roll_number_int = str(int(roll_number)) if roll_number.isdigit() else roll_number
         exam_set      = page_result.get("exam_set", "EMPTY")
         
         debug_info = {
@@ -102,6 +104,10 @@ async def scan_omr(
         # (Assuming answer key fetching follows)
 
         # ── 4. Fetch answer key from the database ────────────────────
+        # Fallback to Set 1 if it couldn't detect properly in low light
+        if exam_set == "EMPTY":
+            exam_set = "1"
+            
         set_name = f"Set {exam_set}"
         logger.info("Querying answer key: exam_id=%d  set=%s", exam_id, set_name)
 
@@ -152,7 +158,44 @@ async def scan_omr(
 
         total      = len(correct_answers)
         percentage = round((score / total) * 100, 2) if total else 0.0
+        # Check if result already exists for this exam and roll number
+        # result = db.query(Result).filter(
+        #     Result.exam_id == exam_id, 
+        #     Result.roll_number == roll_number
+        # ).first()
+        result = db.query(Result).filter(
+        Result.exam_id == exam_id, 
+        Result.roll_number == roll_number_int
+        ).first()
 
+        if result:
+            # Update existing result
+            result.exam_set = exam_set
+            result.score = score
+            result.total_questions = total
+            result.percentage = percentage
+            result.wrong_questions = json.dumps(wrong)
+            result.skipped_questions = json.dumps(skipped)
+            result.detailed_results = json.dumps(detailed)
+        else:
+            # Create new result
+            result = Result(
+                exam_id=exam_id,
+                class_id=exam.class_id,
+                # roll_number=roll_number,
+                roll_number=roll_number_int,
+                exam_set=exam_set,
+                score=score,
+                total_questions=total,
+                percentage=percentage,
+                wrong_questions=json.dumps(wrong),
+                skipped_questions=json.dumps(skipped),
+                detailed_results=json.dumps(detailed)
+            )
+            db.add(result)
+
+        db.commit()
+        db.refresh(result)        
         return {
             "status": "success",
             "data": {

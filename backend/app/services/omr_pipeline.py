@@ -397,7 +397,7 @@ def dual_threshold(gray: np.ndarray) -> np.ndarray:
         gray, 255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY_INV,
-        101, 5
+        101, 25  # Increased C from 5 to 25 to suppress low-light noise in empty areas
     )
     kernel = np.ones((3, 3), np.uint8)
     cleaned = cv2.morphologyEx(t_adaptive, cv2.MORPH_CLOSE, kernel, iterations=1)

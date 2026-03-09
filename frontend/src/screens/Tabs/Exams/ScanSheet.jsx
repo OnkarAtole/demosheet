@@ -84,24 +84,37 @@ export default function OMRScanner({ route, navigation }) {
 
       const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
 
-      const cropWidth = photo.width * 0.85;
-      const cropHeight = photo.height * 0.90;
-      const cropX = photo.width * 0.075;
-      const cropY = photo.height * 0.05;
+      let finalWidth = photo.width;
+      let finalHeight = photo.height;
+      let ops = [];
+
+      // If camera hardware captures natively in landscape (width > height),
+      // we rotate it 90 degrees so it becomes portrait.
+      if (finalWidth > finalHeight) {
+        ops.push({ rotate: 90 });
+        // Swap dimensions since it will be rotated
+        finalWidth = photo.height;
+        finalHeight = photo.width;
+      }
+
+      const cropWidth = finalWidth * 0.85;
+      const cropHeight = finalHeight * 0.90;
+      const cropX = finalWidth * 0.075;
+      const cropY = finalHeight * 0.05;
+
+      ops.push({
+        crop: {
+          originX: cropX,
+          originY: cropY,
+          width: cropWidth,
+          height: cropHeight,
+        },
+      });
+      ops.push({ resize: { width: 1400 } });
 
       const processed = await ImageManipulator.manipulateAsync(
         photo.uri,
-        [
-          {
-            crop: {
-              originX: cropX,
-              originY: cropY,
-              width: cropWidth,
-              height: cropHeight,
-            },
-          },
-          { resize: { width: 1400 } },
-        ],
+        ops,
         { compress: 0.92, format: ImageManipulator.SaveFormat.JPEG }
       );
 

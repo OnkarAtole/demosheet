@@ -82,3 +82,10 @@ export const generateOMR = async (examId) => {
     responseType: "blob",   
   });
 };
+
+
+export const downloadResultsExcel = (examId) => {
+  return API.get(`/exams/export-results/${examId}`, {
+    responseType: "blob",
+  });
+};

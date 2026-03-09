@@ -16,5 +16,3 @@ api_router.include_router(exam_route.router)
 api_router.include_router(answer_key_route.router)
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(scan_omr.router, prefix="/omr", tags=["OMR"])
-
-
