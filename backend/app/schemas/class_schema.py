@@ -22,5 +22,8 @@ class ClassResponse(ClassBase):
     created_at: datetime
     student_count: int 
 
-    class Config:
-        from_attributes = True
+    # class Config:
+    #     from_attributes = True
+    model_config = {
+    "from_attributes": True
+}

@@ -18,7 +18,7 @@ import logging
 import traceback
 from typing import List
 
-from fastapi import APIRouter, UploadFile, File, Form, Depends
+from fastapi import APIRouter, UploadFile, File, Form, Depends,HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -91,6 +91,13 @@ async def scan_omr(
 
         final_answers = page_result.get("answers", {})
         roll_number   = page_result.get("roll_number", "EMPTY")
+
+        # added a exception for non digit roll numbers as they cause issues in result storage and retrieval
+        if not roll_number.isdigit():
+            raise HTTPException(
+                status_code=400,
+                detail="Roll number not detected. Please rescan the sheet."
+            )
         roll_number_int = str(int(roll_number)) if roll_number.isdigit() else roll_number
         exam_set      = page_result.get("exam_set", "EMPTY")
         

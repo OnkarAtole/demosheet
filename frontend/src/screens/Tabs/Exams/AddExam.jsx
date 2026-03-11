@@ -18,7 +18,9 @@ import { createExam } from "../../../services/examService";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 const AddExam = ({navigation}) => {
-  const [rollDigits, setRollDigits] = React.useState(1);
+  // const [rollDigits, setRollDigits] = React.useState(1);-->for dynamic roll number digits in future if needed currently set to 1 for all exams
+  
+  const rollDigits = 4; // Roll number is fixed to 4 digits for all exams
   const [examset, setExamSet] = React.useState(1);
 
   const [subjectCount, setSubjectCount] = React.useState(null);
@@ -103,11 +105,11 @@ const AddExam = ({navigation}) => {
       const day = ("0" + examDate.getDate()).slice(-2);
 
 //   dummy classes for dropdown
-const classOptions = [
-  { label: "FY BCA", value: "fybca" },
-  { label: "SY BCA", value: "sybca" },  
-  { label: "TY BCA", value: "tybca" }
-]
+// const classOptions = [
+//   { label: "FY BCA", value: "fybca" },
+//   { label: "SY BCA", value: "sybca" },  
+//   { label: "TY BCA", value: "tybca" }
+// ]
       const formattedDate = year + "-" + month + "-" + day;
 
       const examPayload = {
@@ -128,7 +130,8 @@ const classOptions = [
       alert("Exam Created Successfully");
       setExamName("");
       setSelectedClass(null);
-      setRollDigits(1);
+      // setRollDigits(1); removed roll number digit reset as it is currently fixed to 1 for
+      //  all exams can be made dynamic in future if needed
       setExamSet(1);
       setSubjectCount(null);
       setSubjects([]);
@@ -238,8 +241,9 @@ const classOptions = [
               + Add Class
             </Text>
 
-            {/* Roll Number Counter */}
-            <View style={styles.counterRow}>
+            {/* Roll Number Counter */} 
+            {/* user can select roll number digits from 1 to 9 currently set to 1 for all exams can be made dynamic in future if needed */}
+            {/* <View style={styles.counterRow}>
               <Text style={styles.counterLabel}>Roll Number Digits</Text>
               <View style={styles.counterControls}>
                 <Text
@@ -260,7 +264,11 @@ const classOptions = [
                   +
                 </Text>
               </View>
-            </View>
+            </View> */}
+
+            {/* logic to fix roll number digit */}
+
+
 
             {/* Exam Set Counter */}
             <View style={styles.counterRow}>

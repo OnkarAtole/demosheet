@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import SettingScreen from '../screens/Tabs/Setting/SettingScreen'
 import ContactScreen from "../screens/Tabs/Setting/ContactScreen";
 import EditProfile from "../screens/Tabs/Setting/EditProfile";
-
+import Settingpage from "../screens/Tabs/Setting/Settingpage";
 const Stack = createNativeStackNavigator();
 
 export default function SettingStack() {
@@ -13,7 +13,7 @@ export default function SettingStack() {
       <Stack.Screen name="SettingScreen" component={SettingScreen} />
       <Stack.Screen name="ContactScreen" component={ContactScreen} />
       <Stack.Screen name="EditProfile" component={EditProfile} />
-   
+      <Stack.Screen name="Settingpage" component={Settingpage} />
     </Stack.Navigator>
   );
 }

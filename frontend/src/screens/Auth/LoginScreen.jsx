@@ -130,26 +130,26 @@ useEffect(() => {
 
         {/* DIVIDER */}
         <View style={styles.dividerRow}>
-          <View style={styles.line} />
-          <Text style={styles.orText}>Or sign in with</Text>
-          <View style={styles.line} />
+          {/* <View style={styles.line} /> */}
+          {/* <Text style={styles.orText}>Or sign in with</Text> */}
+          {/* <View style={styles.line} /> */}
         </View>
 
         {/* SOCIAL LOGIN */}
         <View style={styles.socialRow}>
-          <Image
+          {/* <Image
             source={{
               uri: "https://img.icons8.com/ios-filled/50/mac-os.png",
             }}
             style={styles.icon}
-          />
+          /> */}
           {/* <Image
             source={{
               uri: "https://img.icons8.com/color/48/google-logo.png",
             }}
             style={styles.icon}
           /> */}
-
+{/* 
 <TouchableOpacity onPress={() => promptAsync({ useProxy: true })}>
 
   <Image
@@ -158,7 +158,7 @@ useEffect(() => {
     }}
     style={styles.icon}
   />
-</TouchableOpacity>
+</TouchableOpacity> */}
 
         </View>
 
@@ -212,13 +212,24 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     paddingVertical: 10,
   },
-  loginBtn: {
-    backgroundColor: "#000",
-    marginTop: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: "center",
-  },
+  // loginBtn: {
+  //   backgroundColor: "#000",
+  //   marginTop: 30,
+  //   paddingVertical: 15,
+  //   borderRadius: 25,
+  //   alignItems: "center",
+  // },
+  loginBtn:{
+ backgroundColor:"#1e65d0",
+ paddingVertical:16,
+ borderRadius:30,
+ alignItems:"center",
+ marginTop:20,
+ shadowColor:"#000",
+ shadowOpacity:0.2,
+ shadowRadius:6,
+ elevation:4
+},
   loginText: {
     color: "#fff",
     fontWeight: "bold",
@@ -246,7 +257,7 @@ const styles = StyleSheet.create({
   socialRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 20,
+    // marginTop: 0,set to 0 to remove gap between divider and social icons can be adjusted as needed
   },
   icon: {
     width: 45,
