@@ -21,5 +21,8 @@ class AnswerKeyResponse(BaseModel):
     question_key: str
     correct_option: str
 
-    class Config:
-        orm_mode = True
+    # class Config:
+    #     orm_mode = True
+    model_config = {
+    "from_attributes": True
+}

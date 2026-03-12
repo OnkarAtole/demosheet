@@ -1,3 +1,6 @@
+
+
+
 import React, { useRef, useState } from "react";
 import {
   View,
@@ -15,9 +18,9 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
-
+import { scanOMR } from "../../../services/omrService";
 const { width: SW } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.1.11:8000";
+
 
 // ─────────────────────────────────────────────
 // MAIN SCREEN — Camera + Capture + Evaluate
@@ -81,9 +84,37 @@ export default function OMRScanner({ route, navigation }) {
 
       const photo = await cameraRef.current.takePictureAsync({ quality: 1 });
 
+      let finalWidth = photo.width;
+      let finalHeight = photo.height;
+      let ops = [];
+
+      // If camera hardware captures natively in landscape (width > height),
+      // we rotate it 90 degrees so it becomes portrait.
+      if (finalWidth > finalHeight) {
+        ops.push({ rotate: 90 });
+        // Swap dimensions since it will be rotated
+        finalWidth = photo.height;
+        finalHeight = photo.width;
+      }
+
+      const cropWidth = finalWidth * 0.85;
+      const cropHeight = finalHeight * 0.90;
+      const cropX = finalWidth * 0.075;
+      const cropY = finalHeight * 0.05;
+
+      ops.push({
+        crop: {
+          originX: cropX,
+          originY: cropY,
+          width: cropWidth,
+          height: cropHeight,
+        },
+      });
+      ops.push({ resize: { width: 1400 } });
+
       const processed = await ImageManipulator.manipulateAsync(
         photo.uri,
-        [{ resize: { width: 1400 } }],
+        ops,
         { compress: 0.92, format: ImageManipulator.SaveFormat.JPEG }
       );
 
@@ -96,55 +127,47 @@ export default function OMRScanner({ route, navigation }) {
 
   // ── Evaluate ─────────────────────────────────
   const evaluateSheet = async () => {
-    if (loading) return;
-    if (images.length !== Number(totalPages)) {
+  if (loading) return;
+
+  if (images.length !== Number(totalPages)) {
+    Alert.alert(
+      "Incomplete",
+      `Please capture all ${totalPages} page(s).\n\nCaptured: ${images.length}/${totalPages}`
+    );
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const result = await scanOMR(examId, images);
+
+    if (result.status !== "success") {
       Alert.alert(
-        "Incomplete",
-        `Please capture all ${totalPages} page(s) before evaluating.\n\nCaptured: ${images.length}/${totalPages}`
+        "Evaluation Failed",
+        result.detail || result.message || "Server error"
       );
       return;
     }
 
-    try {
-      setLoading(true);
+    setResult(result.data);
 
-      const formData = new FormData();
-      images.forEach((img, idx) => {
-        formData.append("files", {
-          uri: img.uri,
-          name: `omr_page_${idx + 1}.jpg`,
-          type: "image/jpeg",
-        });
-      });
-      formData.append("exam_id", String(examId));
-
-      const response = await fetch(`${API_BASE_URL}/api/v1/omr/scan-omr`, {
-        method: "POST",
-        body: formData,
-        headers: { Accept: "application/json" },
-      });
-
-      const json = await response.json();
-
-      if (!response.ok || json.status !== "success") {
-        Alert.alert("Evaluation Failed", json.detail || json.message || "Server error");
-        return;
-      }
-
-      setResult(json.data);
-    } catch (error) {
-      console.error("Fetch error:", error);
-      Alert.alert("Connection Error", `Could not reach server.\n${API_BASE_URL}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    Alert.alert(
+      "Connection Error",
+      error.response?.data?.detail || error.message || "Server not reachable"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ── Retake last photo ─────────────────────────
   const retakeLast = () => setImages((prev) => prev.slice(0, -1));
 
   const allCaptured = images.length >= Number(totalPages);
-  const progress = images.length / Number(totalPages);
+  // const progress = images.length / Number(totalPages);
+  const progress = totalPages ? images.length / totalPages : 0;
 
   return (
     <View style={styles.container}>
@@ -187,16 +210,28 @@ export default function OMRScanner({ route, navigation }) {
       {/* Scan frame overlay */}
       <View style={styles.frameContainer}>
         <View style={styles.frame}>
-          {/* Corner accents */}
-          <View style={[styles.corner, styles.cornerTL]} />
-          <View style={[styles.corner, styles.cornerTR]} />
-          <View style={[styles.corner, styles.cornerBL]} />
-          <View style={[styles.corner, styles.cornerBR]} />
+          {/* Guide squares - sized to help maintain proper capture distance */}
+          <View style={[styles.guideBox, styles.cornerTL]}>
+             <View style={styles.guideHole} />
+          </View>
+          <View style={[styles.guideBox, styles.cornerTR]}>
+             <View style={styles.guideHole} />
+          </View>
+          <View style={[styles.guideBox, styles.cornerBL]}>
+             <View style={styles.guideHole} />
+          </View>
+          <View style={[styles.guideBox, styles.cornerBR]}>
+             <View style={styles.guideHole} />
+          </View>
+
           {!allCaptured && (
-            <Text style={styles.frameHint}>
-              Align OMR sheet inside the frame
-            </Text>
+            <View style={styles.guideHintOuter}>
+              <Text style={styles.frameHint}>
+                Fit sheet markers inside the blue squares
+              </Text>
+            </View>
           )}
+
           {allCaptured && (
             <View style={styles.frameReady}>
               <Text style={styles.frameReadyIcon}>✓</Text>
@@ -443,31 +478,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   frame: {
-    width: SW * 0.82,
-    height: SW * 1.1,
+    width: SW * 0.90,
+    height: SW * 1.25,
     justifyContent: "center",
     alignItems: "center",
   },
-  corner: {
+  guideBox: {
     position: "absolute",
-    width: 24,
-    height: 24,
-    borderColor: "#FF6B35",
+    width: 85,
+    height: 85,
+    borderColor: "#3b82f6",
     borderWidth: 3,
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
-  cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
-  cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
-  cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
-  frameHint: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: 13,
-    fontWeight: "500",
-    textAlign: "center",
-    backgroundColor: "rgba(0,0,0,0.45)",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  guideHole: {
+    width: 34,
+    height: 34,
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.4)",
+  },
+  cornerTL: { top: 0, left: 0 },
+  cornerTR: { top: 0, right: 0 },
+  cornerBL: { bottom: 0, left: 0 },
+  cornerBR: { bottom: 0, right: 0 },
+  guideHintOuter: {
+    backgroundColor: "rgba(0,0,0,0.65)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  frameHint: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
   },
   frameReady: { alignItems: "center" },
   frameReadyIcon: { fontSize: 40, color: "#4ECDC4" },

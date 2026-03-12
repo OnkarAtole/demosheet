@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: evalbee-db
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    expose:
+      - "5432"
+    networks:
+      - evalbee-net
+
+  backend:
+    build: .
+    container_name: evalbee-backend
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    expose:
+      - "8000"
+    networks:
+      - evalbee-net
+
+
+volumes:
+  postgres_data:
+
+networks:
+  evalbee-net:
+    name: evalbee-net
+    driver: bridge

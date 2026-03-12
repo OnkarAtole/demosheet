@@ -14,6 +14,9 @@ import AntDesign from "react-native-vector-icons/AntDesign";
 import EvilIcons from "react-native-vector-icons/EvilIcons";
 import { logout } from "../../../services/authService";
 import { getCurrentUser } from "../../../services/userService";
+
+
+
 const Setting = ({ navigation }) => {
   // const username = "Onkar";
   const role="Teacher"
@@ -41,7 +44,9 @@ const handleEdit = () => {
   const handlecontact = () => {
     navigation.navigate("ContactScreen");
   };
-  const handleSetting = () => {};
+  const handleSetting = () => {
+    navigation.navigate("Settingpage");
+  };
   const handleShare = () => {};
   const handleLogout = async () => {
     await logout();
@@ -64,9 +69,12 @@ const handleEdit = () => {
 
             <View>
               <Text style={styles.username}>{user?.name || "Loading..."}</Text>
-              <Text
+              {/* <Text
                 style={[styles.username, { fontSize: 12, fontWeight: "10" }]}
               >
+                {role}
+              </Text> */}
+              <Text style={styles.roleText}>
                 {role}
               </Text>
             </View>
@@ -100,7 +108,7 @@ const handleEdit = () => {
                   <Text style={styles.btnText}>Contact</Text>
                 </TouchableOpacity>
               </View>
-
+{/* setting part temp closed as setting page is under development 
               <View style={styles.settingbtn}>
                 <View
                   style={{
@@ -120,7 +128,7 @@ const handleEdit = () => {
                 >
                   <Text style={styles.btnText}>Setting</Text>
                 </TouchableOpacity>
-              </View>
+              </View> */}
 
               <View style={styles.settingbtn}>
                 <View
@@ -186,36 +194,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginTop: 30,
   },
-  profile: {
-    borderWidth: 1,
-    borderColor: "black",
-    borderRadius: 5,
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    flexDirection: "row",
-  },
-  logo: {
-    height: 50,
-    width: 50,
-    backgroundColor: "#e1c7c7",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 50,
-  },
+ profile: {
+  flexDirection: "row",
+  alignItems: "center",
+  paddingVertical: 16,
+  paddingHorizontal: 14,
+  borderRadius: 14,
+  backgroundColor: "#fafafa",
+  elevation: 3,
+  shadowColor: "#000",
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+},
+ logo: {
+  height: 56,
+  width: 56,
+  backgroundColor: "#e1c7c7",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 28,
+  marginRight: 12,
+},
   logoText: {
     fontSize: 30,
     fontWeight: "Bold",
   },
   username: {
-    paddingHorizontal: 20,
-    fontWeight: "bold",
-    fontSize: 20,
-  },
-  editbtn: {
-    position: "absolute",
-    right: 20,
-    paddingTop: 10,
-  },
+  fontWeight: "700",
+  fontSize: 20,
+},
+ editbtn: {
+  marginLeft: "auto",
+},
   settingbtn: {
     paddingVertical: 15,
     flexDirection: "row",
@@ -225,4 +235,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 17,
   },
+
+  roleText: {
+  fontSize: 13,
+  color: "#666",
+  marginTop: 2,
+},
 });

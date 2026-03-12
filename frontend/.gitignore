@@ -35,3 +35,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# OMR debug images
+backend/last_processed_debug_pg1.png
+backend/thresh_debug.png
+backend/warped_debug.png

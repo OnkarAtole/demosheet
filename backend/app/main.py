@@ -2,6 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
+import logging
+
+# Show OMR pipeline logs in the terminal
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+
 
 # 🔥 ADD THESE 3 IMPORTS
 from app.db.session import engine
@@ -19,7 +25,8 @@ Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    # allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,10 +36,10 @@ app.include_router(api_router, prefix="/api/v1")
 
 from app.db.base import Base
 
-print("\n📦 DATABASE STRUCTURE:\n")
+# print("\n📦 DATABASE STRUCTURE:\n")
 
-for table_name, table in Base.metadata.tables.items():
-    print(f"Table: {table_name}")
-    for column in table.columns:
-        print(f"   - {column.name} ({column.type}) | nullable={column.nullable}")
-    print("-" * 40)
+# for table_name, table in Base.metadata.tables.items():
+#     print(f"Table: {table_name}")
+#     for column in table.columns:
+#         print(f"   - {column.name} ({column.type}) | nullable={column.nullable}")
+#     print("-" * 40)

@@ -6,38 +6,35 @@ import {
   TouchableOpacity,
   Dimensions,
 } from "react-native";
-
+import { Feather } from "@expo/vector-icons";
 const { width } = Dimensions.get("window");
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getExamDetail } from "../../../services/examService";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { generateOMR } from "../../../services/examService";
+
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { downloadResultsExcel } from "../../../services/examService";
 export default function ExamDetails({ route, navigation }) {
   const { examData } = route.params;
 
-  // 🔥 CHANGE 1: Convert backend date to Date object
-  const examDate = new Date(examData.exam_date);
-  examDate.setHours(0, 0, 0, 0);
+  // Placeholder status if needed
+  const status = "Ongoing";
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return { day: "??", month: "???" };
+    try {
+      const date = new Date(dateString);
+      const day = date.getDate();
+      const month = date.toLocaleString("en-US", { month: "short" }).toUpperCase();
+      return { day, month };
+    } catch (err) {
+      return { day: "??", month: "???" };
+    }
+  };
 
-  // 🔥 CHANGE 2: Create today date for status logic
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // 🔥 CHANGE 3: Dynamic Status Logic
-  let status = "";
-
-  if (examDate > today) {
-    status = "Incoming";
-  } else if (examDate.getTime() === today.getTime()) {
-    status = "Ongoing";
-  } else {
-    status = "Completed";
-  }
-
-  // 🔥 CHANGE 4: Use student_count instead of questions
-  const progress = 0;
-  const total = examData.student_count || 1;
+  const { day, month } = formatDate(examData.exam_date);
 
   //   const openAnswerKey = async () => {
   //   const token = await AsyncStorage.getItem("token");
@@ -83,84 +80,91 @@ export default function ExamDetails({ route, navigation }) {
       console.log("Download error:", error);
     }
   };
+
+
+  const downloadExcel = async () => {
+  try {
+    const response = await downloadResultsExcel(examData.id);
+
+    // const fileUri = FileSystem.documentDirectory + "results.xlsx";
+    const fileUri = FileSystem.documentDirectory + `${examData.exam_name}_results.xlsx`;
+
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      const base64 = reader.result.split(",")[1];
+
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      await Sharing.shareAsync(fileUri);
+    };
+
+    reader.readAsDataURL(response.data);
+  } catch (error) {
+    console.log("Excel download error:", error);
+  }
+};
+
+
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Exams Details</Text>
 
       {/* Exam Card */}
       <View style={styles.card}>
-        {/* 🔥 CHANGE 5: Replace old date with formatted backend date */}
         <View style={styles.dateBox}>
-          <Text style={styles.dateText}>{examDate.getDate()}</Text>
-          <Text style={styles.dateText}>
-            {examDate.toLocaleString("default", { month: "short" })}
-          </Text>
+          <View style={styles.dateInner}>
+            <Text style={styles.dateDay}>{day}</Text>
+            <Text style={styles.dateMonth}>{month}</Text>
+          </View>
         </View>
 
-        {/* Middle */}
         <View style={styles.middle}>
-          {/* 🔥 CHANGE 6: Replace title with exam_name */}
           <Text style={styles.title}>{examData.exam_name}</Text>
-
-          {/* 🔥 CHANGE 7: Replace ? questions with student_count */}
-          <Text style={styles.questions}>👥 {examData.student_count}</Text>
+          {/* <Text style={styles.questions}>👥 {examData.student_count || 0} students</Text> */}
+          <View style={{flexDirection:"row",alignItems:"center"}}>
+          <Feather name="users" size={16} color="#444" />
+          <Text style={styles.questions}> {examData.student_count || 0} Students</Text>
+        </View>
         </View>
 
-        {/* Right */}
         <View style={styles.right}>
-          {/* 🔥 CHANGE 8: Replace examData.status with calculated status */}
           <View style={styles.statusBadge}>
-            <Text>{status}</Text>
+            {/* <Text>{status}</Text> */}
+            <Text style={{color:"#2e7d32",fontWeight:"600"}}>{status}</Text>
           </View>
 
-          {/* 🔥 CHANGE 9: Replace class with class_name */}
           <View style={styles.courseBadge}>
-            <Text style={{ color: "#fff" }}>
-              {examData.class_name.toUpperCase()}
-            </Text>
+            <Text style={{ color: "#fff" }}>{examData.class_name}</Text>
           </View>
         </View>
       </View>
 
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBackground}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${(progress / total) * 100}%` },
-            ]}
-          />
-        </View>
-
-        <Text style={styles.progressText}>
-          {progress}/{total}
-        </Text>
-      </View>
+      {/* Progress section removed as it was not part of original design */}
 
       {/* Generate Button */}
       <TouchableOpacity style={styles.generateBtn} onPress={downloadOMR}>
-        <Text style={styles.generateText}>Generate OMR Sheet</Text>
+        {/* <Text style={styles.generateText}>Generate OMR Sheet</Text> */}
+        <View style={{flexDirection:"row",alignItems:"center"}}>
+          <Feather name="file-text" size={18} color="#fff" />
+          <Text style={styles.generateText}>  Generate OMR Sheet</Text>
+      </View>
       </TouchableOpacity>
 
       {/* Grid */}
       <View style={styles.grid}>
         <TouchableOpacity
-          style={styles.optionBox}
-          onPress={() =>
-            // navigation.navigate("AnswerKey", {
-            //   subjects: examData.subjects,
-            //   totalSets: 2,
-            // })
-            // navigation.navigate("AnswerKey", {
-            //   subjects: examData.subjects || [],
-            //   totalSets: 2,
-            //   examId: examData.id,
-            // })
-            openAnswerKey()
-          }
+           style={styles.optionBox}
+          activeOpacity={0.7} 
+          onPress={openAnswerKey}
         >
-          <View style={styles.circle} />
+          {/* <View style={styles.circle} />
+          <Text style={styles.optionText}>Answer Key</Text> */}
+          <View style={styles.circleAnswer}>
+            <Feather name="check-circle" size={38} color="#6a4fb3" />
+          </View>
           <Text style={styles.optionText}>Answer Key</Text>
         </TouchableOpacity>
 
@@ -169,23 +173,63 @@ export default function ExamDetails({ route, navigation }) {
           onPress={() =>
             navigation.navigate("OMRScanner", {
               examId: examData.id,
-              totalPages: examData.total_pages || 1, // adjust based on backend
+              totalPages: examData.total_pages || 1,
             })
           }
         >
-          <View style={styles.circle} />
+          {/* <View style={styles.circle} />
+          <Text style={styles.optionText}>Scan Sheet</Text> */}
+
+          <View style={styles.circleScan}>
+            <Feather name="camera" size={38} color="#2e8b57" />
+          </View>
           <Text style={styles.optionText}>Scan Sheet</Text>
         </TouchableOpacity>
-        {renderOption("Download Excel")}
-        {renderOption("Analysis")}
+        {/* {renderOption("Download Excel")} */}
+        {renderOption("Download Excel", downloadExcel)}
+        {/* {renderOption("Analysis")} */}
+
+
+        <TouchableOpacity
+            style={styles.optionBox}
+            onPress={() =>
+              navigation.navigate("Analysis", {
+                examId: examData.id,
+                classId: examData.class_id
+              })
+            }
+          >
+            {/* <View style={styles.circle} />
+            <Text style={styles.optionText}>Analysis</Text> */}
+            <View style={styles.circleAnalysis}>
+              <Feather name="trending-up" size={40} color="#4f6cc3" />
+              {/* <Feather name="pie-chart" size={40} color="#4f6cc3" /> optional logo */}
+          </View>
+          <Text style={styles.optionText}>Analysis</Text>
+      </TouchableOpacity>
+
       </View>
     </View>
   );
 }
 
-const renderOption = (title) => (
-  <TouchableOpacity style={styles.optionBox}>
-    <View style={styles.circle} />
+// const renderOption = (title) => (
+//   <TouchableOpacity style={styles.optionBox}>
+//     <View style={styles.circle} />
+//     <Text style={styles.optionText}>{title}</Text>
+//   </TouchableOpacity>
+// );
+// const renderOption = (title, onPress) => (
+//   <TouchableOpacity style={styles.optionBox} onPress={onPress}>
+//     <View style={styles.circle} />
+//     <Text style={styles.optionText}>{title}</Text>
+//   </TouchableOpacity>
+// );
+const renderOption = (title, onPress) => (
+  <TouchableOpacity style={styles.optionBox} onPress={onPress}>
+    <View style={styles.circleExcel}>
+      <Feather name="download" size={38} color="#e67e22" />
+    </View>
     <Text style={styles.optionText}>{title}</Text>
   </TouchableOpacity>
 );
@@ -208,24 +252,43 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     backgroundColor: "#fff",
+    padding:16,
     borderWidth: 1,
     borderColor: "#ccc",
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 14,
     justifyContent: "space-between",
     alignItems: "center",
-  },
+    shadowColor:"#000",
+    shadowOpacity:0.08,
+    shadowRadius:6,
+    shadowOffset:{width:0,height:3},
+    elevation:3
+    },
 
   dateBox: {
     backgroundColor: "#ddd",
-    padding: 12,
-    alignItems: "center",
+    paddingVertical: 12,
     width: width * 0.18,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  dateText: {
+  dateInner: {
+    alignItems: "center",
+  },
+
+  dateDay: {
+    fontSize: 24,
     fontWeight: "bold",
-    fontSize: 16,
+    color: "#222",
+  },
+
+  dateMonth: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#555",
+    marginTop: -2,
   },
 
   middle: {
@@ -248,25 +311,20 @@ const styles = StyleSheet.create({
   },
 
   statusBadge: {
-    backgroundColor: "#e0e0e0",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginBottom: 8,
-
-    minWidth: 90, // ✅ ensures equal width
-    alignItems: "center", // ✅ center text
-  },
+  backgroundColor:"#e8f5e9",
+  paddingHorizontal:12,
+  paddingVertical:6,
+  borderRadius:20,
+  marginBottom:8
+},
 
   courseBadge: {
-    backgroundColor: "#9e9e9e",
-    paddingHorizontal: 15,
+    backgroundColor: "#4f6cc3",
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 20, // 🔥 changed from 5 to 20 for professional pill look
-    minWidth: 90, // ✅ equal width with status
-    alignItems: "center",
+    borderRadius: 20,
   },
-
+  
   progressContainer: {
     marginTop: 25,
   },
@@ -289,12 +347,25 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  generateBtn: {
-    marginTop: 20,
-    backgroundColor: "#4f6cc3",
-    padding: 15,
-    borderRadius: 30,
-    alignItems: "center",
+  // generateBtn: {
+  //   marginTop: 20,
+  //   backgroundColor: "#4f6cc3",
+  //   padding: 15,
+  //   borderRadius: 30,
+  //   alignItems: "center",
+  // },
+  generateBtn:{
+  marginTop:20,
+  backgroundColor:"#4f6cc3",
+  paddingVertical:14,
+  borderRadius:12,
+  alignItems:"center",
+
+  shadowColor:"#000",
+  shadowOpacity:0.15,
+  shadowRadius:6,
+  shadowOffset:{width:0,height:3},
+  elevation:4
   },
 
   generateText: {
@@ -313,6 +384,16 @@ const styles = StyleSheet.create({
     width: "48%",
     alignItems: "center",
     marginBottom: 25,
+    backgroundColor:"#fff",
+    paddingVertical:15,
+    borderRadius:12,
+
+    shadowColor:"#000",
+    shadowOpacity:0.08,
+    shadowRadius:6,
+    shadowOffset:{width:0,height:3},
+
+    elevation:3
   },
 
   circle: {
@@ -327,4 +408,55 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
+
+  // added styles for analysis circle
+  // circleAnalysis:{
+  // width: width * 0.25,
+  // height: width * 0.25,
+  // borderRadius: (width * 0.25) / 2,
+  // backgroundColor:"#e9efff",
+  // justifyContent:"center",
+  // alignItems:"center",
+  // marginBottom:10
+  // },
+
+  circleAnswer:{
+width: width * 0.25,
+height: width * 0.25,
+borderRadius:(width*0.25)/2,
+backgroundColor:"#efe8ff",
+justifyContent:"center",
+alignItems:"center",
+marginBottom:10
+},
+
+circleScan:{
+width: width * 0.25,
+height: width * 0.25,
+borderRadius:(width*0.25)/2,
+backgroundColor:"#e7f5ec",
+justifyContent:"center",
+alignItems:"center",
+marginBottom:10
+},
+
+circleExcel:{
+width: width * 0.25,
+height: width * 0.25,
+borderRadius:(width*0.25)/2,
+backgroundColor:"#fff1e5",
+justifyContent:"center",
+alignItems:"center",
+marginBottom:10
+},
+
+circleAnalysis:{
+width: width * 0.25,
+height: width * 0.25,
+borderRadius:(width*0.25)/2,
+backgroundColor:"#e9efff",
+justifyContent:"center",
+alignItems:"center",
+marginBottom:10
+},
 });
