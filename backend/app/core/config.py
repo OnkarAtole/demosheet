@@ -26,5 +26,9 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
     )
 
+    model_config = {
+        "extra": "allow"
+    }
 
 settings = Settings()
+

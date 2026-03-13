@@ -19,7 +19,6 @@
     },
     "android": {
       "package": "com.harshal752.omrapp",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -38,7 +37,13 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.578084463356-nkc9jmf7m8s6f6k0bjbb3dvo5s8cbk6l.apps.googleusercontent.com"
         }
-      ]
-    ]
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2310ef96-1eb7-4189-9b4b-029e39c1c825"
+      }
+    }
   }
 }
